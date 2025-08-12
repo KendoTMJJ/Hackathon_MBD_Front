@@ -1,10 +1,9 @@
-import { securityTechnologies } from "../data/securityTechnologies";
+
 import { ChevronDown, ChevronRight, Search } from "lucide-react";
-import type {
-  SecurityCategory,
-  SecurityTechnology,
-} from "../types/securityTypes";
+
 import { useState } from "react";
+import { securityTechnologies } from "../data/securityTechnologies";
+import type { SecurityCategory, SecurityTechnology } from "../types/securityTypes";
 
 interface TechnologyPanelProps {
   onDragStart: (event: React.DragEvent, technology: SecurityTechnology) => void;
