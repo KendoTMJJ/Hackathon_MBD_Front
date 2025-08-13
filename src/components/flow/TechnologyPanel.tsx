@@ -1,12 +1,19 @@
-
 import { ChevronDown, ChevronRight, Search } from "lucide-react";
-
-import { useState } from "react";
-import { securityTechnologies } from "../data/securityTechnologies";
-import type { SecurityCategory, SecurityTechnology } from "../types/securityTypes";
+import { useMemo, useState } from "react";
+import type {
+  SecurityCategory,
+  SecurityTechnology,
+} from "../types/securityTypes";
+import { securityTechnologies } from "../data/SecurityTechnologies";
 
 interface TechnologyPanelProps {
-  onDragStart: (event: React.DragEvent, technology: SecurityTechnology) => void;
+  /** Handler opcional para iniciar drag hacia React Flow */
+  onDragStart?: (
+    event: React.DragEvent,
+    technology: SecurityTechnology
+  ) => void;
+  /** Permite sobreescribir clases externas (ancho, bordes, etc.) */
+  className?: string;
 }
 
 const categoryNames: Record<SecurityCategory, string> = {
@@ -28,102 +35,136 @@ const categoryNames: Record<SecurityCategory, string> = {
 
 export const TechnologyPanel: React.FC<TechnologyPanelProps> = ({
   onDragStart,
+  className = "",
 }) => {
-  const [expandedCategories, setExpandedCategories] = useState<
-    Set<SecurityCategory>
-  >(new Set(["firewall", "waf", "ips"]));
+  const [expanded, setExpanded] = useState<Set<SecurityCategory>>(
+    // categorías abiertas por defecto en la demo
+    () => new Set<SecurityCategory>(["firewall", "waf", "ips"])
+  );
   const [searchTerm, setSearchTerm] = useState("");
 
-  const toggleCategory = (category: SecurityCategory) => {
-    const newExpanded = new Set(expandedCategories);
-    if (newExpanded.has(category)) {
-      newExpanded.delete(category);
-    } else {
-      newExpanded.add(category);
+  const filtered = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+    if (!q) return securityTechnologies;
+    return securityTechnologies.filter(
+      (t) =>
+        t.name.toLowerCase().includes(q) ||
+        t.description.toLowerCase().includes(q) ||
+        (t.manufacturer ?? "").toLowerCase().includes(q)
+    );
+  }, [searchTerm]);
+
+  const grouped = useMemo(() => {
+    const acc: Record<SecurityCategory, SecurityTechnology[]> = {} as any;
+    for (const t of filtered) {
+      (acc[t.category] ??= []).push(t);
     }
-    setExpandedCategories(newExpanded);
+    return acc;
+  }, [filtered]);
+
+  const toggle = (cat: SecurityCategory) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      next.has(cat) ? next.delete(cat) : next.add(cat);
+      return next;
+    });
   };
 
-  const filteredTechnologies = securityTechnologies.filter(
-    (tech) =>
-      tech.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      tech.description.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const groupedTechnologies = filteredTechnologies.reduce((acc, tech) => {
-    if (!acc[tech.category]) {
-      acc[tech.category] = [];
-    }
-    acc[tech.category].push(tech);
-    return acc;
-  }, {} as Record<SecurityCategory, SecurityTechnology[]>);
-
   return (
-    <div className="w-80 bg-white border-r border-gray-200 p-4 overflow-y-auto">
-      <div className="mb-4">
-        <h2 className="text-lg font-bold text-gray-800 mb-2">
-          Tecnologías de Seguridad
-        </h2>
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+    <aside
+      className={[
+        "h-full w-full",
+        "bg-[#0f1115] text-white/90",
+        "border-r border-white/10",
+        "flex flex-col",
+        className,
+      ].join(" ")}
+    >
+      {/* Header sticky: título + búsqueda */}
+      <div className="sticky top-0 z-10 border-b border-white/10 bg-[#0f1115]/95 backdrop-blur">
+        <div className="px-3 pt-3">
+          <h2 className="text-sm font-semibold tracking-wide">Tecnologías</h2>
+        </div>
+        <div className="relative px-3 pb-3 pt-2">
+          <Search className="pointer-events-none absolute left-5 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40" />
           <input
-            type="text"
-            placeholder="Buscar tecnologías..."
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Buscar tecnologías…"
+            className="w-full rounded-md border border-white/10 bg-white/5 pl-9 pr-3 py-2 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/20"
           />
         </div>
       </div>
 
-      <div className="space-y-2">
-        {Object.entries(groupedTechnologies).map(([category, technologies]) => (
-          <div key={category} className="border border-gray-200 rounded-lg">
-            <button
-              onClick={() => toggleCategory(category as SecurityCategory)}
-              className="w-full flex items-center justify-between p-3 hover:bg-gray-50 transition-colors"
-            >
-              <span className="font-medium text-gray-700">
-                {categoryNames[category as SecurityCategory]} (
-                {technologies.length})
-              </span>
-              {expandedCategories.has(category as SecurityCategory) ? (
-                <ChevronDown className="w-4 h-4 text-gray-500" />
-              ) : (
-                <ChevronRight className="w-4 h-4 text-gray-500" />
-              )}
-            </button>
+      {/* Lista scrollable */}
+      <div className="min-h-0 flex-1 overflow-y-auto p-3 space-y-2">
+        {Object.entries(grouped).length === 0 && (
+          <div className="text-xs text-white/60 px-2">
+            No se encontraron resultados.
+          </div>
+        )}
 
-            {expandedCategories.has(category as SecurityCategory) && (
-              <div className="pb-2">
-                {technologies.map((tech) => (
-                  <div
-                    key={tech.id}
-                    draggable
-                    onDragStart={(e) => onDragStart(e, tech)}
-                    className="mx-3 mb-2 p-3 border border-gray-200 rounded cursor-grab hover:shadow-md transition-shadow bg-gray-50 hover:bg-white"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="text-2xl">{tech.icon}</div>
-                      <div className="flex-1">
-                        <div className="font-medium text-gray-800 text-sm">
-                          {tech.name}
-                        </div>
-                        <div className="text-xs text-gray-600">
-                          {tech.manufacturer}
-                        </div>
-                        <div className="text-xs text-gray-500 mt-1">
-                          {tech.description}
+        {Object.entries(grouped).map(([catKey, techs]) => {
+          const cat = catKey as SecurityCategory;
+          const open = expanded.has(cat);
+          return (
+            <div key={cat} className="rounded-lg border border-white/10">
+              <button
+                onClick={() => toggle(cat)}
+                className="w-full flex items-center justify-between px-3 py-2 hover:bg-white/5"
+                aria-expanded={open}
+              >
+                <span className="text-sm font-medium">
+                  {categoryNames[cat]}{" "}
+                  <span className="opacity-60">({techs.length})</span>
+                </span>
+                {open ? (
+                  <ChevronDown className="h-4 w-4 text-white/60" />
+                ) : (
+                  <ChevronRight className="h-4 w-4 text-white/60" />
+                )}
+              </button>
+
+              {open && (
+                <div className="pb-2">
+                  {techs.map((t) => (
+                    <div
+                      key={t.id}
+                      draggable={!!onDragStart}
+                      onDragStart={
+                        onDragStart ? (e) => onDragStart(e, t) : undefined
+                      }
+                      className={[
+                        "mx-3 mb-2 rounded-md border border-white/10 bg-white/[0.03] hover:bg-white/[0.06]",
+                        "cursor-grab active:cursor-grabbing",
+                        "transition-shadow hover:shadow",
+                        "p-3",
+                      ].join(" ")}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="text-2xl leading-none">{t.icon}</div>
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-medium">
+                            {t.name}
+                          </div>
+                          {t.manufacturer && (
+                            <div className="truncate text-xs text-white/70">
+                              {t.manufacturer}
+                            </div>
+                          )}
+                          <div className="mt-1 line-clamp-2 text-xs text-white/60">
+                            {t.description}
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        ))}
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
-    </div>
+    </aside>
   );
 };
