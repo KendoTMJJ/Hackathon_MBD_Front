@@ -1,16 +1,39 @@
-import BoardPage from "./pages/BoardPage";
+// App.tsx
+import { Routes, Route, Navigate } from "react-router-dom";
 import HomePage from "./pages/HomePage";
-import { Route, Routes } from "react-router-dom";
-import RequireAuth from "./components/auth/RequireAuth";
+import BoardPage from "./pages/BoardPage";
 import ProfilePage from "./pages/ProfilePage";
+import RequireAuth from "./components/auth/RequireAuth";
 
-function App() {
+export default function App() {
   return (
     <div className="w-screen h-[100dvh] overflow-hidden bg-[#0f1115]">
-      <main>
+      <main className="h-full">
         <Routes>
-          <Route path="/" element={<HomePage />}></Route>
-          <Route path="/Board" element={<BoardPage />}></Route>
+          {/* Home público: lista proyectos y plantillas */}
+          <Route path="/" element={<HomePage />} />
+
+          {/* Board con :documentId (recomendado) */}
+          <Route
+            path="/Board/:documentId"
+            element={
+              <RequireAuth>
+                <BoardPage />
+              </RequireAuth>
+            }
+          />
+
+          {/* OPCIONAL: Board leyendo ?doc=<id> o ?id=<id> */}
+          <Route
+            path="/Board"
+            element={
+              <RequireAuth>
+                <BoardPage />
+              </RequireAuth>
+            }
+          />
+
+          {/* Perfil (protegido) */}
           <Route
             path="/profile"
             element={
@@ -19,9 +42,11 @@ function App() {
               </RequireAuth>
             }
           />
+
+          {/* Fallback */}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
     </div>
   );
 }
-export default App;

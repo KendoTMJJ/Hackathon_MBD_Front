@@ -3,10 +3,11 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { Auth0Provider } from "@auth0/auth0-react";
 import "./index.css";
-import App from "./App.tsx";
+import App from "./App";
 
 const domain = import.meta.env.VITE_AUTH0_DOMAIN as string;
 const clientId = import.meta.env.VITE_AUTH0_CLIENT_ID as string;
+const audience = import.meta.env.VITE_AUTH0_AUDIENCE as string;
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
@@ -14,9 +15,11 @@ createRoot(document.getElementById("root")!).render(
       domain={domain}
       clientId={clientId}
       authorizationParams={{
+        audience,
         redirect_uri: window.location.origin,
         scope: "openid profile email",
       }}
+      cacheLocation="localstorage"
     >
       <BrowserRouter>
         <App />
