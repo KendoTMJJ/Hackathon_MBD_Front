@@ -8,7 +8,6 @@ import Header from "../components/flow/Header";
 import Sidebar from "../components/flow/Sidebar";
 import TemplateCard from "../components/templates/TemplateCard";
 import DocumentCard from "../components/templates/DocumentCard";
-import NavBar from "../components/public/NavBar";
 import NameModal from "../components/templates/NameModal";
 
 import { useApi } from "../hooks/useApi";
@@ -194,8 +193,6 @@ export default function HomePage() {
   // Render por vista (desde Sidebar)
   return (
     <div className="flex h-screen w-full flex-col bg-[#0f0f10] text-[#f0f0f0]">
-      <NavBar />
-
       <div className="flex min-h-0 flex-1">
         <aside className="hidden md:block w-[240px] shrink-0 bg-[#151517] border-r border-[#313138] p-[14px]">
           <Sidebar />

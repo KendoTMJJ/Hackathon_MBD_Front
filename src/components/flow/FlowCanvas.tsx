@@ -1,4 +1,3 @@
-// src/components/flow/FlowCanvas.tsx
 import {
   ReactFlow,
   addEdge,
@@ -32,10 +31,7 @@ import Toolbar from "./Toolbar";
 
 import { useCollab } from "../../hooks/useCollab";
 import { useApi } from "../../hooks/useApi";
-import {
-  useDocumentStore,
-  useDocumentsApi, // para crear/actualizar fuera del store
-} from "../../hooks/useDocument";
+import { useDocumentStore, useDocumentsApi } from "../../hooks/useDocument";
 
 import { useProjects } from "../../hooks/useProject";
 import type { DocumentData } from "../../models";
@@ -60,7 +56,7 @@ const initialEdges: Edge[] = [{ id: "e-n1-n2", source: "n1", target: "n2" }];
 const fitViewOptions: FitViewOptions = { padding: 0.2 };
 const defaultEdgeOptions: DefaultEdgeOptions = { animated: true };
 const onNodeDrag: OnNodeDrag = () => {};
-const TOOLBAR_H = 70;
+const TOOLBAR_H = 65;
 
 export default function FlowCanvas() {
   const nav = useNavigate();
@@ -78,7 +74,7 @@ export default function FlowCanvas() {
   const { isAuthenticated, loginWithRedirect } = useAuth0();
 
   // Hooks de API
-  const api = useApi(); // <- para inyectar en el store
+  const api = useApi(); // para inyectar en el store
   const documentsApi = useDocumentsApi();
   const templatesApi = useTemplates();
   const projectsApi = useProjects();
@@ -152,7 +148,7 @@ export default function FlowCanvas() {
   const [toolbarOpen, setToolbarOpen] = useState(true);
   const [rf, setRf] = useState<ReactFlowInstance | null>(null);
 
-  // 5) Autosave solo en persistido (usa el save del store, que ya es robusto)
+  // 5) Autosave solo en persistido
   const debouncedSave = useDebouncedCallback(() => {
     if (documentId) save();
   }, 1000);
@@ -228,18 +224,14 @@ export default function FlowCanvas() {
     [documentId, setDoc, debouncedSave]
   );
 
-  // 6.b) Guardar al cerrar pestaña/cambiar de visibilidad (solo persistido)
+  // Guardar al cerrar pestaña/cambiar visibilidad (solo persistido)
   useEffect(() => {
     if (!documentId) return;
-
     const saveNow = () => useDocumentStore.getState().save();
-    const onBeforeUnload = () => {
-      saveNow();
-    };
+    const onBeforeUnload = () => saveNow();
     const onVisibility = () => {
       if (document.visibilityState === "hidden") saveNow();
     };
-
     window.addEventListener("beforeunload", onBeforeUnload);
     document.addEventListener("visibilitychange", onVisibility);
     return () => {
@@ -250,6 +242,7 @@ export default function FlowCanvas() {
 
   // 7) Guardar / Crear (Documents) usando hooks
   const [isSaving, setIsSaving] = useState(false);
+
   const handleSave = useCallback(async () => {
     if (!isAuthenticated) {
       await loginWithRedirect({
@@ -270,7 +263,7 @@ export default function FlowCanvas() {
       return;
     }
 
-    // Draft → necesitamos un projectId (si no viene, lo creamos con useProjects)
+    // Borrador → asegurar projectId
     let projectId = draftProjectId ?? undefined;
     if (!projectId) {
       try {
@@ -285,21 +278,19 @@ export default function FlowCanvas() {
 
     setIsSaving(true);
     try {
-      // Crear doc con datos actuales; si tu API permite create con data, úsalo.
       const payload: DocumentData = { nodes: draftNodes, edges: draftEdges };
-      // Fallback: createBlank + update
-      const tmp = await documentsApi.createBlank({
+      // crea en blanco y luego actualiza con el contenido del canvas
+      const created = await documentsApi.createBlank({
         projectId: projectId!,
         title: title || "Sin título",
       });
-      const created = await documentsApi.update({
-        id: tmp.id,
-        version: tmp.version,
+      const updated = await documentsApi.update({
+        id: created.id,
+        version: created.version,
         data: payload,
-        title: title || tmp.title,
+        title: title || created.title,
       });
-
-      nav(`/Board/${created.id}`, { replace: true });
+      nav(`/Board/${updated.id}`, { replace: true });
     } catch (e) {
       console.error(e);
       alert("No se pudo guardar. Revisa la consola.");
@@ -379,12 +370,21 @@ export default function FlowCanvas() {
   return (
     <div className="w-screen h-[100dvh] overflow-hidden bg-[#0f1115]">
       <div className="flex h-full w-full flex-col">
-        {/* Toolbar */}
+        {/* Toolbar (ahora contiene Guardar/Crear y Actualizar plantilla) */}
         <header
           className="border-b border-white/10 bg-[#0f1115]/95 backdrop-blur overflow-hidden transition-[height] duration-200"
           style={{ height: toolbarOpen ? TOOLBAR_H : 0 }}
         >
-          {toolbarOpen && <Toolbar />}
+          {toolbarOpen && (
+            <Toolbar
+              onSave={handleSave}
+              saving={isSaving}
+              canUpdateTemplate={showUpdateTemplate}
+              onUpdateTemplate={handleUpdateTemplate}
+              updatingTemplate={isUpdatingTpl}
+              isDraft={!documentId}
+            />
+          )}
         </header>
 
         <div className="flex min-h-0 flex-1">
@@ -440,7 +440,7 @@ export default function FlowCanvas() {
                   </div>
                 </Panel>
 
-                {/* Acciones */}
+                {/* Acciones de UI locales (solo toggles) */}
                 <Panel position="top-right">
                   <div className="flex gap-2 rounded-md border border-white/10 bg-[#0f1115]/90 p-2">
                     <button
@@ -457,33 +457,6 @@ export default function FlowCanvas() {
                     >
                       {toolbarOpen ? "Ocultar toolbar" : "Mostrar toolbar"}
                     </button>
-
-                    {/* Guardar/Crear Document */}
-                    <button
-                      onClick={handleSave}
-                      disabled={isSaving}
-                      className="rounded-md border border-green-500/20 bg-green-900/20 px-3 py-2 text-xs text-green-400 hover:bg-green-900/30 hover:border-green-500/30 transition-colors disabled:opacity-50"
-                    >
-                      {isSaving
-                        ? "Guardando…"
-                        : documentId
-                        ? "Guardar"
-                        : "Crear"}
-                    </button>
-
-                    {/* Actualizar Template (solo visible si es borrador con templateId) */}
-                    {showUpdateTemplate && (
-                      <button
-                        onClick={handleUpdateTemplate}
-                        disabled={isUpdatingTpl}
-                        className="rounded-md border border-blue-500/20 bg-blue-900/20 px-3 py-2 text-xs text-blue-300 hover:bg-blue-900/30 hover:border-blue-500/30 transition-colors disabled:opacity-50"
-                        title="Actualizar plantilla del catálogo"
-                      >
-                        {isUpdatingTpl
-                          ? "Actualizando…"
-                          : "Actualizar plantilla"}
-                      </button>
-                    )}
                   </div>
                 </Panel>
               </ReactFlow>
