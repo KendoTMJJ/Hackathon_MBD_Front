@@ -1,100 +1,104 @@
-import React from "react";
-import { Save, Download, Upload, Play, Square, Layers } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth0 } from "@auth0/auth0-react";
 
-interface ToolbarProps {
-  onSave: () => void;
-  onLoad: () => void;
-  onExport: () => void;
-  onPresentationMode: () => void;
-  presentationMode: boolean;
-  onShowZones: () => void;
-  showZones: boolean;
-}
+export default function NavBar() {
+  const { isAuthenticated, loginWithRedirect, logout, user } = useAuth0();
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
 
-export const Toolbar: React.FC<ToolbarProps> = ({
-  onSave,
-  onLoad,
-  onExport,
-  onPresentationMode,
-  presentationMode,
-  onShowZones,
-  showZones,
-}) => {
+  useEffect(() => {
+    const onClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node))
+        setOpen(false);
+    };
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, []);
+
+  const initials = (user?.name || user?.email || "U")
+    .trim()
+    .split(" ")
+    .map((s) => s[0]?.toUpperCase())
+    .slice(0, 2)
+    .join("");
+
   return (
-    <div className="bg-white border-b border-gray-200 p-4">
-      <div className="flex items-center gap-4">
-        <div className="flex items-center gap-2">
-          <div className="text-xl font-bold text-blue-600">🔐</div>
-          <h1 className="text-xl font-bold text-gray-800">
-            Security Architecture Designer
-          </h1>
-        </div>
-
-        <div className="flex-1" />
-
-        <div className="flex items-center gap-2">
-          <button
-            onClick={onShowZones}
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
-              showZones
-                ? "bg-blue-100 text-blue-700 border border-blue-300"
-                : "bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200"
-            }`}
-          >
-            <Layers className="w-4 h-4" />
-            Zonas
-          </button>
-
-          <button
-            onClick={onPresentationMode}
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
-              presentationMode
-                ? "bg-green-100 text-green-700 border border-green-300"
-                : "bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200"
-            }`}
-          >
-            {presentationMode ? (
-              <Square className="w-4 h-4" />
-            ) : (
-              <Play className="w-4 h-4" />
-            )}
-            {presentationMode ? "Salir" : "Presentar"}
-          </button>
-
-          <div className="h-6 w-px bg-gray-300" />
-
-          <button
-            onClick={onSave}
-            className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <Save className="w-4 h-4" />
-            Guardar
-          </button>
-
-          <input
-            type="file"
-            id="load-file"
-            accept=".json"
-            onChange={onLoad}
-            className="hidden"
-          />
-          <label
-            htmlFor="load-file"
-            className="flex items-center gap-2 px-3 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors cursor-pointer"
-          >
-            <Upload className="w-4 h-4" />
-            Cargar
-          </label>
-
-          <button
-            onClick={onExport}
-            className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-          >
-            <Download className="w-4 h-4" />
-            Exportar
-          </button>
+    <nav className="sticky top-0 z-50 border-b border-white/10 bg-[#0b0b12]/90 backdrop-blur supports-[backdrop-filter]:bg-[#0b0b12]/70">
+      <div className="flex w-full items-center justify-between px-4 py-3 text-white">
+        <Link to="/" className="rounded-md px-3 py-1.5 hover:bg-white/5">
+          Home
+        </Link>
+        <div className="relative" ref={menuRef}>
+          {!isAuthenticated ? (
+            <button
+              onClick={() =>
+                loginWithRedirect({
+                  appState: { returnTo: "/" },
+                  authorizationParams: { ui_locales: "es" },
+                })
+              }
+              className="rounded-md border border-white/10 bg-[#171727] px-3 py-1.5 hover:bg-[#1c1c2e]"
+            >
+              Iniciar sesión
+            </button>
+          ) : (
+            <>
+              <button
+                onClick={() => setOpen((v) => !v)}
+                className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-white/5"
+                aria-haspopup="menu"
+                aria-expanded={open}
+              >
+                {user?.picture ? (
+                  <img
+                    src={String(user.picture) || "/placeholder.svg"}
+                    alt={String(user.name ?? "Usuario")}
+                    className="h-8 w-8 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="grid h-8 w-8 place-items-center rounded-full bg-white/15 text-xs font-bold">
+                    {initials}
+                  </div>
+                )}
+                <span className="hidden sm:inline text-sm">
+                  {user?.name ?? "Mi perfil"}
+                </span>
+              </button>
+              {open && (
+                <div
+                  role="menu"
+                  className="absolute right-0 mt-2 w-44 overflow-hidden rounded-md border border-white/10 bg-[#141420] text-sm shadow-lg"
+                >
+                  <button
+                    role="menuitem"
+                    className="block w-full px-3 py-2 text-left hover:bg-white/5"
+                    onClick={() => {
+                      setOpen(false);
+                      navigate("/profile");
+                    }}
+                  >
+                    Mi perfil
+                  </button>
+                  <button
+                    role="menuitem"
+                    className="block w-full px-3 py-2 text-left hover:bg-white/5"
+                    onClick={() => {
+                      setOpen(false);
+                      logout({
+                        logoutParams: { returnTo: window.location.origin },
+                      });
+                    }}
+                  >
+                    Cerrar sesión
+                  </button>
+                </div>
+              )}
+            </>
+          )}
         </div>
       </div>
-    </div>
+    </nav>
   );
-};
+}
