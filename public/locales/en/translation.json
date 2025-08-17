@@ -1,0 +1,30 @@
+{
+  "navbar": {
+    "home": "Home",
+    "login": "Log in",
+    "logout": "Log out"
+  },
+  "home": {
+    "welcome": "Welcome",
+    "subtitle": "Create clear diagrams and collaborate in real time.",
+    "loadingTemplates": "Loading your templates…"
+  },
+  "header": {
+    "searchPlaceholder": "Search templates or documents...",
+    "new": "New"
+  },
+  "sidebar": {
+    "new": "New",
+    "home": "Home",
+    "documents": "Documents",
+    "templates": "Templates",
+    "personal": "Personal"
+  },
+  "sections": {
+    "orgChart": "Org chart",
+    "mindMap": "Mind map",
+    "flowchart": "Flowchart",
+    "conceptMap": "Concept map"
+  },
+  "common": { "new": "New" }
+}

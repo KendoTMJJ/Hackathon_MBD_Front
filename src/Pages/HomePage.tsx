@@ -2,11 +2,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth0 } from "@auth0/auth0-react";
+import { useTranslation } from "react-i18next";
 
 import Header from "../components/flow/Header";
 import Sidebar from "../components/flow/Sidebar";
 import TemplateCard from "../components/templates/TemplateCard";
-import NavBar from "../components/public/NavBar";   
+import NavBar from "../components/public/NavBar";
 import "../home.css";
 
 import { useApi } from "../hooks/useApi";
@@ -15,13 +16,6 @@ import {
   SAMPLE_TEMPLATE_DATA,
   SAMPLE_TEMPLATE_TITLE,
 } from "../features/templates/sample";
-
-const sections = [
-  { title: "Organigrama" },
-  { title: "Mapa mental" },
-  { title: "Diagrama de flujo" },
-  { title: "Mapa conceptual" },
-];
 
 function normalizeDoc(raw: any) {
   return {
@@ -35,6 +29,7 @@ function normalizeDoc(raw: any) {
 
 export default function HomePage() {
   const { isAuthenticated, loginWithRedirect, isLoading } = useAuth0();
+  const { t } = useTranslation();
   const api = useApi();
   const navigate = useNavigate();
 
@@ -45,13 +40,22 @@ export default function HomePage() {
 
   const loadedOnce = useRef(false);
 
+  const sectionKeys = ["orgChart", "mindMap", "flowchart", "conceptMap"] as const;
+  const sections = useMemo(
+    () => sectionKeys.map((k) => ({ key: k, title: t(`sections.${k}`) })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [t] // rehacer títulos al cambiar idioma
+  );
+
   async function loadData() {
     setLoading(true);
     setError(undefined);
     try {
       let { data: projs } = await api.get<Project[]>("/projects");
       if (!projs.length) {
-        const created = await api.post<Project>("/projects", { name: "My Diagrams" });
+        const created = await api.post<Project>("/projects", {
+          name: t("home.defaultProjectName", { defaultValue: "My Diagrams" }),
+        });
         projs = [created.data];
       }
       setProjects(projs);
@@ -66,7 +70,7 @@ export default function HomePage() {
       const tpls = allDocs.filter((d) => (d.kind ?? "").toLowerCase() === "template");
       setTemplates(tpls);
     } catch (e: any) {
-      setError(e?.message ?? "Error cargando datos");
+      setError(e?.message ?? t("home.loadError", { defaultValue: "Error cargando datos" }));
     } finally {
       setLoading(false);
     }
@@ -95,7 +99,9 @@ export default function HomePage() {
   async function ensureTemplatesProject(): Promise<Project> {
     const found = projects.find((x: any) => (x.name ?? "").toLowerCase() === "templates");
     if (found) return found;
-    const { data } = await api.post<Project>("/projects", { name: "Templates" });
+    const { data } = await api.post<Project>("/projects", {
+      name: t("home.templatesProjectName", { defaultValue: "Templates" }),
+    });
     setProjects((prev) => [...prev, data]);
     return data;
   }
@@ -107,7 +113,7 @@ export default function HomePage() {
     }
     if (!targetProject) return;
     const { data } = await api.post<DocumentEntity>("/documents", {
-      title: "Nuevo diagrama",
+      title: t("home.newDiagramTitle", { defaultValue: "Nuevo diagrama" }),
       kind: "diagram",
       data: { nodes: [], edges: [] },
       projectId: (targetProject as any).id ?? (targetProject as any).cod_project,
@@ -121,7 +127,10 @@ export default function HomePage() {
       return;
     }
     if (!targetProject) return;
-    const title = `Mi ${tpl.title}`;
+    const title = t("home.myTemplateTitle", {
+      defaultValue: "Mi {{title}}",
+      title: tpl.title,
+    });
     const tplId = (tpl as any).id ?? (tpl as any).cod_document;
     const { data } = await api.post<DocumentEntity>(`/documents/${tplId}/clone`, null, {
       params: {
@@ -160,32 +169,35 @@ export default function HomePage() {
           <div className="main-content">
             <section className="hero">
               <div>
-                <h1>Bienvenido</h1>
-                <p className="muted">Crea diagramas claros y colabora en tiempo real.</p>
+                <h1>{t("home.welcome")}</h1>
+                <p className="muted">{t("home.subtitle")}</p>
               </div>
               <div className="flex gap-2">
                 <button className="btn btn-primary" onClick={handleSeedTemplate}>
-                  Cargar plantilla de prueba
+                  {t("home.loadSample", { defaultValue: "Cargar plantilla de prueba" })}
                 </button>
                 <button className="btn btn-accent" onClick={handleCreateBlank}>
-                  Tablero en blanco
+                  {t("home.blankBoard", { defaultValue: "Tablero en blanco" })}
                 </button>
               </div>
             </section>
 
             <section className="chip-row">
               {sections.map((s) => (
-                <div key={s.title} className="chip">
+                <div key={s.key} className="chip">
                   {s.title}
                 </div>
               ))}
             </section>
 
-            {loading && <p>Cargando tus plantillas…</p>}
+            {loading && <p>{t("home.loadingTemplates")}</p>}
             {error && <p className="text-red-400">{error}</p>}
             {!loading && !templates.length && (
               <p className="muted">
-                No tienes plantillas aún. Usa “Cargar plantilla de prueba” o crea una desde el editor.
+                {t("home.noTemplates", {
+                  defaultValue:
+                    "No tienes plantillas aún. Usa “Cargar plantilla de prueba” o crea una desde el editor.",
+                })}
               </p>
             )}
 
