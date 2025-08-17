@@ -179,7 +179,7 @@ export default function FlowCanvas() {
         projectId: templatesProject.id ?? templatesProject.cod_project,
       });
 
-      // Mostrar confirmación (puedes reemplazar con un toast/notification)
+      // Mostrar confirmación 
       alert("¡Plantilla guardada exitosamente!");
     } catch (error) {
       console.error("Error guardando plantilla:", error);
@@ -187,7 +187,8 @@ export default function FlowCanvas() {
     }
   }, [isAuthenticated, loginWithRedirect, doc, api, nodes, edges]);
 
-  
+   
+
   // 7) Re-encuadre al abrir/cerrar paneles
   useEffect(() => {
     const t = setTimeout(() => rf?.fitView(fitViewOptions), 220);
@@ -272,6 +273,7 @@ export default function FlowCanvas() {
                       {toolbarOpen ? "Ocultar toolbar" : "Mostrar toolbar"}
                     </button>
 
+
                     <button
                       onClick={handleSaveAsTemplate}
                       className="rounded-md border border-green-500/20 bg-green-900/20 px-3 py-2 text-xs text-green-400 hover:bg-green-900/30 
@@ -286,6 +288,7 @@ export default function FlowCanvas() {
           </div>
         </div>
       </div>
+      
     </div>
   );
 }
