@@ -45,6 +45,10 @@ export default function App() {
 
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />
+
+          <Route path="/" element={<HomePage />} />
+          <Route path="/templates" element={<HomePage />} />
+          <Route path="/documents" element={<HomePage />} />
         </Routes>
       </main>
     </div>

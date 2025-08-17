@@ -1,10 +1,10 @@
-import { useAuth0 } from "@auth0/auth0-react"
+import { useAuth0 } from "@auth0/auth0-react";
 
 export default function ProfilePage() {
-  const { user, isAuthenticated, isLoading } = useAuth0()
+  const { user, isAuthenticated, isLoading } = useAuth0();
 
-  if (isLoading) return <main className="p-6">Cargando perfil...</main>
-  if (!isAuthenticated) return null
+  if (isLoading) return <main className="p-6">Cargando perfil...</main>;
+  if (!isAuthenticated) return null;
 
   return (
     <main className="mx-auto max-w-3xl p-6 text-white">
@@ -24,5 +24,5 @@ export default function ProfilePage() {
         </div>
       </section>
     </main>
-  )
+  );
 }
