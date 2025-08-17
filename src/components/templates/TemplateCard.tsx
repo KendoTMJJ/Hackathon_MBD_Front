@@ -1,29 +1,34 @@
 // src/components/templates/TemplateCard.tsx
 import "@xyflow/react/dist/style.css";
 import { ReactFlow, Background } from "@xyflow/react";
-import type { DocumentEntity } from "../../models";
-import { nodeTypes } from "../flow/nodes"; // ajusta el path si están en otro sitio
-import { edgeTypes } from "../flow/edges"; // idem
 import { useMemo } from "react";
+import { nodeTypes } from "../flow/nodes";
+import { edgeTypes } from "../flow/edges";
+
+// Acepta cualquier doc (snake o camel) y lo normaliza
+function normalizeDoc(raw: any) {
+  return {
+    id: raw.id ?? raw.cod_document,
+    title: raw.title ?? raw.title_document,
+    kind: raw.kind ?? raw.kind_document,
+    data: raw.data ?? raw.data_document ?? { nodes: [], edges: [] },
+    projectId: raw.projectId ?? raw.project_id,
+  };
+}
 
 type Props = {
-  tpl: DocumentEntity;
-  onUse: (tpl: DocumentEntity) => void;
+  tpl: any;                     // DocumentEntity (camel o snake)
+  onUse: (tpl: any) => void;    // callback cuando el usuario usa la plantilla
 };
 
 export default function TemplateCard({ tpl, onUse }: Props) {
-  const nodes = useMemo(() => (tpl.data_document?.nodes as any[]) ?? [], [tpl]);
-  const edges = useMemo(() => (tpl.data_document?.edges as any[]) ?? [], [tpl]);
+  const doc = useMemo(() => normalizeDoc(tpl), [tpl]);
+  const nodes = useMemo(() => (doc.data?.nodes as any[]) ?? [], [doc]);
+  const edges = useMemo(() => (doc.data?.edges as any[]) ?? [], [doc]);
 
   return (
-    <article className="rounded-xl border border-white/10 bg-[#141420] p-4">
-      <div className="mb-3">
-        <h3 className="text-lg font-semibold">{tpl.title_document}</h3>
-        <p className="text-xs text-white/60">Plantilla</p>
-      </div>
-
-      {/* Preview no interactivo */}
-      <div className="mb-4 h-32 rounded-md overflow-hidden bg-black/20">
+    <article className="tpl-card">
+      <div className="tpl-thumb">
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -31,7 +36,6 @@ export default function TemplateCard({ tpl, onUse }: Props) {
           edgeTypes={edgeTypes as any}
           fitView
           proOptions={{ hideAttribution: true }}
-          // Desactivar interacción para que sea “thumbnail”
           nodesDraggable={false}
           nodesConnectable={false}
           elementsSelectable={false}
@@ -42,12 +46,18 @@ export default function TemplateCard({ tpl, onUse }: Props) {
         </ReactFlow>
       </div>
 
-      <button
-        onClick={() => onUse(tpl)}
-        className="w-full rounded-md border border-white/10 bg-[#202237] px-3 py-2 text-sm hover:brightness-110"
-      >
-        Usar plantilla
-      </button>
+      <div className="tpl-meta">
+        <div className="tpl-title">{doc.title}</div>
+        <div className="tpl-sub">Plantilla</div>
+
+        <button
+          onClick={() => onUse(doc)}
+          className="btn btn-primary"
+          style={{ marginTop: 8 }}
+        >
+          Usar plantilla
+        </button>
+      </div>
     </article>
   );
 }
