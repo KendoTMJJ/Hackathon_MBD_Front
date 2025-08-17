@@ -23,6 +23,7 @@ import "@xyflow/react/dist/style.css";
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { useLocation, useParams } from "react-router-dom";
 import { useDebouncedCallback } from "use-debounce";
+import { useAuth0 } from "@auth0/auth0-react"
 
 import { nodeTypes } from "./nodes";
 import { edgeTypes } from "./edges";
@@ -64,6 +65,8 @@ export default function FlowCanvas() {
   const q = new URLSearchParams(useLocation().search);
   const documentId = paramId || q.get("doc") || q.get("id") || undefined;
 
+  const { isAuthenticated, loginWithRedirect } = useAuth0()
+
   // 2) Integración backend/WS
   const api = useApi();
   const { doc, load, save, applyLocalPatch, setApiReady } = useDocumentStore();
@@ -81,11 +84,11 @@ export default function FlowCanvas() {
 
   // 3) Deriva nodos/edges del doc (o fallback)
   const nodes = useMemo<Node[]>(
-    () => (doc?.data_document?.nodes as Node[]) ?? initialNodes,
+    () => (doc?.data?.nodes as Node[]) ?? initialNodes,
     [doc]
   );
   const edges = useMemo<Edge[]>(
-    () => (doc?.data_document?.edges as Edge[]) ?? initialEdges,
+    () => (doc?.data?.edges as Edge[]) ?? initialEdges,
     [doc]
   );
 
@@ -103,7 +106,7 @@ export default function FlowCanvas() {
   const onNodesChange: OnNodesChange = useCallback(
     (changes) => {
       const current = useDocumentStore.getState().doc;
-      const currentNodes = (current?.data_document?.nodes as Node[]) ?? [];
+      const currentNodes = (current?.data?.nodes as Node[]) ?? [];
       const nextNodes = applyNodeChanges(changes, currentNodes);
       const patch = { nodes: nextNodes };
       applyLocalPatch(patch);
@@ -116,7 +119,7 @@ export default function FlowCanvas() {
   const onEdgesChange: OnEdgesChange = useCallback(
     (changes) => {
       const current = useDocumentStore.getState().doc;
-      const currentEdges = (current?.data_document?.edges as Edge[]) ?? [];
+      const currentEdges = (current?.data?.edges as Edge[]) ?? [];
       const nextEdges = applyEdgeChanges(changes, currentEdges);
       const patch = { edges: nextEdges };
       applyLocalPatch(patch);
@@ -129,7 +132,7 @@ export default function FlowCanvas() {
   const onConnect: OnConnect = useCallback(
     (connection) => {
       const current = useDocumentStore.getState().doc;
-      const currentEdges = (current?.data_document?.edges as Edge[]) ?? [];
+      const currentEdges = (current?.data?.edges as Edge[]) ?? [];
       const nextEdges = addEdge(
         { ...connection, type: "secure", animated: true },
         currentEdges
@@ -142,6 +145,49 @@ export default function FlowCanvas() {
     [applyLocalPatch, sendChange, debouncedSave]
   );
 
+  const handleSaveAsTemplate = useCallback(async () => {
+    if (!isAuthenticated) {
+      await loginWithRedirect({
+        appState: { returnTo: window.location.pathname },
+      });
+      return;
+    }
+
+    if (!doc || !api) {
+      console.error("No hay documento o API disponible");
+      return;
+    }
+
+    try {
+      // Obtener el proyecto "Templates" o crearlo
+      const { data: projects } = await api.get("/projects");
+      let templatesProject = projects.find(
+        (p: any) => (p.name ?? "").toLowerCase() === "templates"
+      );
+
+      if (!templatesProject) {
+        const { data } = await api.post("/projects", { name: "Templates" });
+        templatesProject = data;
+      }
+
+      // Guardar como plantilla
+      const templateTitle = `Plantilla - ${doc.title || "Sin título"}`;
+      await api.post("/templates", {
+        title: templateTitle,
+        kind: "template",
+        data: { nodes, edges },
+        projectId: templatesProject.id ?? templatesProject.cod_project,
+      });
+
+      // Mostrar confirmación (puedes reemplazar con un toast/notification)
+      alert("¡Plantilla guardada exitosamente!");
+    } catch (error) {
+      console.error("Error guardando plantilla:", error);
+      alert("Error al guardar la plantilla. Inténtalo de nuevo.");
+    }
+  }, [isAuthenticated, loginWithRedirect, doc, api, nodes, edges]);
+
+  
   // 7) Re-encuadre al abrir/cerrar paneles
   useEffect(() => {
     const t = setTimeout(() => rf?.fitView(fitViewOptions), 220);
@@ -224,6 +270,14 @@ export default function FlowCanvas() {
                       className="rounded-md border border-white/10 bg-[#171727] px-3 py-2 text-xs text-white hover:brightness-110"
                     >
                       {toolbarOpen ? "Ocultar toolbar" : "Mostrar toolbar"}
+                    </button>
+
+                    <button
+                      onClick={handleSaveAsTemplate}
+                      className="rounded-md border border-green-500/20 bg-green-900/20 px-3 py-2 text-xs text-green-400 hover:bg-green-900/30 
+                      hover:border-green-500/30 transition-colors"
+                    >
+                      Guardar
                     </button>
                   </div>
                 </Panel>
