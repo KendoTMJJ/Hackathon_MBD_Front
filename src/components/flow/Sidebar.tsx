@@ -1,10 +1,11 @@
-// src/components/flow/Sidebar.tsx
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, NavLink } from "react-router-dom";
 import { useAuth0 } from "@auth0/auth0-react";
 import { useTranslation } from "react-i18next";
-import { useApi } from "../../hooks/useApi";
+// import { useApi } from "../../hooks/useApi";
 import LanguageToggle from "../public/LanguageToggle";
+import { User } from "lucide-react";
+import { useProject } from "../../hooks/useProject";
 
 function defaultTitle() {
   const d = new Date();
@@ -19,7 +20,7 @@ const Sidebar: React.FC = () => {
   const nav = useNavigate();
   const { t, i18n } = useTranslation();
   const { user, isAuthenticated, loginWithRedirect, logout } = useAuth0();
-  const api = useApi();
+  const projectsApi = useProject();
 
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -34,7 +35,7 @@ const Sidebar: React.FC = () => {
     return () => document.removeEventListener("mousedown", onClickOutside);
   }, []);
 
-  const displayName = String(user?.name || user?.email || "diego");
+  const displayName = String(user?.name || user?.email || "Usuario");
   const initials =
     displayName
       .trim()
@@ -47,18 +48,6 @@ const Sidebar: React.FC = () => {
     "block rounded-md px-2.5 py-2 text-[#c8c8cc] hover:bg-[#1b1b1f] hover:text-white";
   const linkActive = "bg-[#1b1b1f] text-white";
 
-  // mismo comportamiento que tenías para crear/obtener proyecto por defecto
-  async function ensureDefaultProject() {
-    const { data: projs } = await api.get("/projects");
-    if (!Array.isArray(projs) || projs.length === 0) {
-      const created = await api.post("/projects", {
-        name: t("home.defaultProjectName", { defaultValue: "My Diagrams" }),
-      });
-      return created.data;
-    }
-    return projs[0];
-  }
-
   const handleNew = async () => {
     if (!isAuthenticated) {
       const uiLocale = i18n.language?.startsWith("en") ? "en" : "es";
@@ -68,7 +57,9 @@ const Sidebar: React.FC = () => {
       });
       return;
     }
-    const project = await ensureDefaultProject();
+    const project = await projectsApi.ensureDefault(
+      t("home.defaultProjectName", { defaultValue: "My Diagrams" })
+    );
     const q = new URLSearchParams({
       projectId: String(project.id),
       title: defaultTitle(),
@@ -93,7 +84,7 @@ const Sidebar: React.FC = () => {
             </div>
             <div>
               <div className="font-semibold">
-                {isAuthenticated ? displayName : "diego"}
+                {isAuthenticated ? displayName : "Usuario"}
               </div>
               <div className="text-xs text-[#c8c8cc]">
                 {t("sidebar.personal")}
@@ -114,7 +105,7 @@ const Sidebar: React.FC = () => {
                 className="rounded-md border border-white/10 bg-[#171727] px-2.5 py-1.5 text-sm text-white hover:bg-[#1c1c2e]"
                 title={t("navbar.login")}
               >
-                {t("navbar.login")}
+                <User />
               </button>
             ) : (
               <>
