@@ -210,6 +210,43 @@ export default function FlowCanvas() {
     [documentId, applyLocalPatch, sendChange, debouncedSave]
   );
 
+  const onDragOver = useCallback((event: React.DragEvent) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+  }, []);
+
+  const onDrop = useCallback((event: React.DragEvent) => {
+    event.preventDefault();
+    if (!rf) return;
+
+    const nodeType = event.dataTransfer.getData("application/reactflow");
+    if (!nodeType) return;
+
+    const position = rf.screenToFlowPosition({
+      x: event.clientX,
+      y: event.clientY,
+    });
+
+    const newNode: Node = {
+      id: `${+new Date()}`,
+      type: nodeType,
+      position,
+      data: { label: `${nodeType}` },
+    };
+
+    if (documentId) {
+      const current = useDocumentStore.getState().doc;
+      const currentNodes = (current?.data?.nodes as Node[]) ?? [];
+      const nextNodes = [...currentNodes, newNode];
+      const patch = { nodes: nextNodes };
+      applyLocalPatch(patch);
+      sendChange(patch);
+      debouncedSave();
+    } else {
+      setDraftNodes((nds) => nds.concat(newNode));
+    }
+  }, [rf, documentId, applyLocalPatch, sendChange, debouncedSave]);
+
   const handleTitleInput = useCallback(
     (v: string) => {
       setTitle(v);
@@ -396,7 +433,11 @@ export default function FlowCanvas() {
           >
             {sidebarOpen && (
               <div className="h-full overflow-y-auto">
-                <TechnologyPanel />
+                <TechnologyPanel
+                  onNodeSelect={(nodeType) => {
+                    console.log("Arrastrando nodo:", nodeType);
+                  }}
+                />
               </div>
             )}
           </aside>
@@ -417,6 +458,8 @@ export default function FlowCanvas() {
                 fitViewOptions={fitViewOptions}
                 defaultEdgeOptions={defaultEdgeOptions}
                 onInit={setRf}
+                onDrop={onDrop}
+                onDragOver={onDragOver}
               >
                 <Background />
                 <Controls />

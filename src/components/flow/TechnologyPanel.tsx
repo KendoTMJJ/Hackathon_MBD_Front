@@ -4,16 +4,11 @@ import type {
   SecurityCategory,
   SecurityTechnology,
 } from "../types/securityTypes";
-import { securityTechnologies } from "../data/SecurityTechnologies";
+import { securityTechnologies } from "../data/securityTechnologies";
 
-interface TechnologyPanelProps {
-  /** Handler opcional para iniciar drag hacia React Flow */
-  onDragStart?: (
-    event: React.DragEvent,
-    technology: SecurityTechnology
-  ) => void;
-  /** Permite sobreescribir clases externas (ancho, bordes, etc.) */
-  className?: string;
+interface SidebarProps {
+  onNodeSelect: (nodeType: string) => void;
+  className?: string
 }
 
 const categoryNames: Record<SecurityCategory, string> = {
@@ -33,15 +28,20 @@ const categoryNames: Record<SecurityCategory, string> = {
   network: "Network",
 };
 
-export const TechnologyPanel: React.FC<TechnologyPanelProps> = ({
-  onDragStart,
+export const TechnologyPanel: React.FC<SidebarProps> = ({
   className = "",
-}) => {
+  // onNodeSelect,
+})=> {
   const [expanded, setExpanded] = useState<Set<SecurityCategory>>(
     // categorías abiertas por defecto en la demo
     () => new Set<SecurityCategory>(["firewall", "waf", "ips"])
   );
   const [searchTerm, setSearchTerm] = useState("");
+
+  const onDragStart = (event: React.DragEvent, nodeType: string) => {
+    event.dataTransfer.setData("application/reactflow", nodeType);
+    event.dataTransfer.effectAllowed = "move";
+  };
 
   const filtered = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
@@ -69,6 +69,12 @@ export const TechnologyPanel: React.FC<TechnologyPanelProps> = ({
       return next;
     });
   };
+
+  // const handleDragStart = (event: React.DragEvent, nodeType: string) => {
+  //   event.dataTransfer.setData("application/reactflow", nodeType);
+  //   event.dataTransfer.effectAllowed = "move";
+  //   onNodeSelect(nodeType); // notifica al padre qué se arrastra
+  // };
 
   return (
     <aside
@@ -130,10 +136,8 @@ export const TechnologyPanel: React.FC<TechnologyPanelProps> = ({
                   {techs.map((t) => (
                     <div
                       key={t.id}
-                      draggable={!!onDragStart}
-                      onDragStart={
-                        onDragStart ? (e) => onDragStart(e, t) : undefined
-                      }
+                      draggable
+                      onDragStart={(event) => onDragStart(event, t.id)}
                       className={[
                         "mx-3 mb-2 rounded-md border border-white/10 bg-white/[0.03] hover:bg-white/[0.06]",
                         "cursor-grab active:cursor-grabbing",
