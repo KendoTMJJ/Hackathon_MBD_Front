@@ -71,3 +71,59 @@ export interface Project {
   createdAt: string; // created_at
   updatedAt: string; // updated_at
 }
+
+export interface SharedLinkEntity {
+  id: string;
+  token: string;
+  permission: "read" | "edit";
+  expiresAt: string | null;
+  passwordHash: string | null;
+  isActive: boolean;
+  createdBy: string;
+  createdAt: string;
+  documentId: string;
+}
+
+export interface CreateShareLinkRequest {
+  permission: "read" | "edit";
+  expiresAt?: string;
+  password?: string;
+}
+
+export interface ShareLinkResponse {
+  shareUrl: string;
+  link: SharedLinkEntity;
+}
+
+export interface SharedDocumentAccess {
+  document: any;
+  permission: "read" | "edit";
+}
+
+export interface SheetEntity {
+  id: string;
+  name: string;
+  orderIndex: number;
+  data: Record<string, any>;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  documentId: string;
+}
+
+export interface CreateSheetRequest {
+  name: string;
+  data?: Record<string, any>;
+}
+
+export interface UpdateSheetRequest {
+  name?: string;
+  data?: Record<string, any>;
+  orderIndex?: number;
+}
+
+export interface ReorderSheetsRequest {
+  sheetIds: string[];
+}
+
+

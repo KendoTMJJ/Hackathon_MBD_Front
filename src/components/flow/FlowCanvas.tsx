@@ -37,6 +37,10 @@ import { useProjects } from "../../hooks/useProject";
 import type { DocumentData } from "../../models";
 import { useTemplates } from "../../hooks/useTemplate";
 
+import ShareModal from "../modals/ShareModal";
+import { useSheets } from "../../hooks/useSheets";
+import SheetTabs from "../modals/SheetTabs";
+
 const initialNodes: Node[] = [
   {
     id: "n1",
@@ -109,6 +113,17 @@ export default function FlowCanvas() {
   const [draftEdges, setDraftEdges] = useState<Edge[]>(initialEdges);
   const [title, setTitle] = useState<string>("");
 
+  const [sheetNodes, setSheetNodes] = useState<Node[]>([]);
+  const [sheetEdges, setSheetEdges] = useState<Edge[]>([]);
+
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  // Sheets
+  const { update, create: createSheet } = useSheets(); // Agregado create para crear hojas
+  const [activeSheet, setActiveSheet] = useState<any>(null);
+  const [isChangingSheet, setIsChangingSheet] = useState(false);
+
+  const [rf, setRf] = useState<ReactFlowInstance | null>(null);
+
   // cargar plantilla (borrador) con useTemplates()
   useEffect(() => {
     if (documentId) {
@@ -116,7 +131,6 @@ export default function FlowCanvas() {
       return;
     }
     setTitle(draftTitleQ || "Nuevo diagrama");
-
     (async () => {
       if (!draftTemplateId) {
         setDraftNodes(initialNodes);
@@ -127,10 +141,14 @@ export default function FlowCanvas() {
         const tpl = await templatesApi.get(String(draftTemplateId));
         const tplData = (tpl?.data ?? {}) as { nodes?: Node[]; edges?: Edge[] };
         setDraftNodes(
-          Array.isArray(tplData.nodes) ? tplData.nodes : initialNodes
+          Array.isArray(tplData.nodes) && tplData.nodes.length > 0
+            ? tplData.nodes
+            : initialNodes
         );
         setDraftEdges(
-          Array.isArray(tplData.edges) ? tplData.edges : initialEdges
+          Array.isArray(tplData.edges) && tplData.edges.length > 0
+            ? tplData.edges
+            : initialEdges
         );
       } catch {
         setDraftNodes(initialNodes);
@@ -140,23 +158,67 @@ export default function FlowCanvas() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [documentId, draftTemplateId, draftTitleQ, doc?.title]);
 
-  const nodes = documentId ? storeNodes : draftNodes;
-  const edges = documentId ? storeEdges : draftEdges;
+  useEffect(() => {
+    if (!activeSheet) {
+      setSheetNodes([]);
+      setSheetEdges([]);
+      return;
+    }
+
+    setIsChangingSheet(true);
+    try {
+      const newNodes = Array.isArray(activeSheet.data?.nodes)
+        ? activeSheet.data.nodes
+        : [];
+      const newEdges = Array.isArray(activeSheet.data?.edges)
+        ? activeSheet.data.edges
+        : [];
+
+      setSheetNodes(newNodes);
+      setSheetEdges(newEdges);
+
+      setTimeout(() => rf?.fitView(fitViewOptions), 100);
+    } catch (error) {
+      console.error("Error loading sheet data:", error);
+      setSheetNodes([]);
+      setSheetEdges([]);
+    } finally {
+      setIsChangingSheet(false);
+    }
+  }, [activeSheet, rf]);
 
   // 4) UI
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [toolbarOpen, setToolbarOpen] = useState(true);
-  const [rf, setRf] = useState<ReactFlowInstance | null>(null);
 
   // 5) Autosave solo en persistido
   const debouncedSave = useDebouncedCallback(() => {
     if (documentId) save();
   }, 1000);
 
-  // 6) Handlers
+  const persistSheet = useDebouncedCallback(
+    async (nodes: Node[], edges: Edge[]) => {
+      if (!activeSheet?.id) return;
+      try {
+        await update(activeSheet.id, { data: { nodes, edges } });
+      } catch (e) {
+        console.error("Error saving sheet:", e);
+      }
+    },
+    1000
+  );
+
   const onNodesChange: OnNodesChange = useCallback(
     (changes) => {
-      if (documentId) {
+      if (isChangingSheet) return;
+
+      if (activeSheet) {
+        setSheetNodes((nds) => {
+          const next = applyNodeChanges(changes, nds);
+          persistSheet(next, sheetEdges);
+          return next;
+        });
+      } else if (documentId) {
         const current = useDocumentStore.getState().doc;
         const currentNodes = (current?.data?.nodes as Node[]) ?? [];
         const nextNodes = applyNodeChanges(changes, currentNodes);
@@ -168,12 +230,29 @@ export default function FlowCanvas() {
         setDraftNodes((nds) => applyNodeChanges(changes, nds));
       }
     },
-    [documentId, applyLocalPatch, sendChange, debouncedSave]
+    [
+      documentId,
+      applyLocalPatch,
+      sendChange,
+      debouncedSave,
+      activeSheet,
+      sheetEdges,
+      persistSheet,
+      isChangingSheet,
+    ]
   );
 
   const onEdgesChange: OnEdgesChange = useCallback(
     (changes) => {
-      if (documentId) {
+      if (isChangingSheet) return;
+
+      if (activeSheet) {
+        setSheetEdges((eds) => {
+          const next = applyEdgeChanges(changes, eds);
+          persistSheet(sheetNodes, next);
+          return next;
+        });
+      } else if (documentId) {
         const current = useDocumentStore.getState().doc;
         const currentEdges = (current?.data?.edges as Edge[]) ?? [];
         const nextEdges = applyEdgeChanges(changes, currentEdges);
@@ -185,12 +264,32 @@ export default function FlowCanvas() {
         setDraftEdges((eds) => applyEdgeChanges(changes, eds));
       }
     },
-    [documentId, applyLocalPatch, sendChange, debouncedSave]
+    [
+      documentId,
+      applyLocalPatch,
+      sendChange,
+      debouncedSave,
+      activeSheet,
+      sheetNodes,
+      persistSheet,
+      isChangingSheet,
+    ]
   );
 
   const onConnect: OnConnect = useCallback(
     (connection) => {
-      if (documentId) {
+      if (isChangingSheet) return;
+
+      if (activeSheet) {
+        setSheetEdges((eds) => {
+          const next = addEdge(
+            { ...connection, type: "secure", animated: true },
+            eds
+          );
+          persistSheet(sheetNodes, next);
+          return next;
+        });
+      } else if (documentId) {
         const current = useDocumentStore.getState().doc;
         const currentEdges = (current?.data?.edges as Edge[]) ?? [];
         const nextEdges = addEdge(
@@ -207,7 +306,16 @@ export default function FlowCanvas() {
         );
       }
     },
-    [documentId, applyLocalPatch, sendChange, debouncedSave]
+    [
+      documentId,
+      applyLocalPatch,
+      sendChange,
+      debouncedSave,
+      activeSheet,
+      sheetNodes,
+      persistSheet,
+      isChangingSheet,
+    ]
   );
 
   const handleTitleInput = useCallback(
@@ -242,6 +350,26 @@ export default function FlowCanvas() {
 
   // 7) Guardar / Crear (Documents) usando hooks
   const [isSaving, setIsSaving] = useState(false);
+
+  const createInitialSheet = useCallback(
+    async (docId: string) => {
+      try {
+        await createSheet(docId, {
+          name: "Hoja 1",
+          data: {
+            nodes: draftNodes,
+            edges: draftEdges,
+          },
+        });
+
+        // Recargar documento para obtener hojas actualizadas
+        load(docId);
+      } catch (error) {
+        console.error("Error creando hoja inicial:", error);
+      }
+    },
+    [draftNodes, draftEdges, createSheet, load]
+  );
 
   const handleSave = useCallback(async () => {
     if (!isAuthenticated) {
@@ -290,6 +418,9 @@ export default function FlowCanvas() {
         data: payload,
         title: title || created.title,
       });
+
+      await createInitialSheet(updated.id);
+
       nav(`/Board/${updated.id}`, { replace: true });
     } catch (e) {
       console.error(e);
@@ -309,6 +440,7 @@ export default function FlowCanvas() {
     documentsApi,
     projectsApi,
     nav,
+    createInitialSheet, 
   ]);
 
   // 7.b) Actualizar Template usando useTemplates()
@@ -367,6 +499,14 @@ export default function FlowCanvas() {
     return () => clearTimeout(t);
   }, [toolbarOpen, rf]);
 
+  const displayNodes = useMemo(() => {
+    return activeSheet ? sheetNodes : documentId ? storeNodes : draftNodes;
+  }, [activeSheet, sheetNodes, documentId, storeNodes, draftNodes]);
+
+  const displayEdges = useMemo(() => {
+    return activeSheet ? sheetEdges : documentId ? storeEdges : draftEdges;
+  }, [activeSheet, sheetEdges, documentId, storeEdges, draftEdges]);
+
   return (
     <div className="w-screen h-[100dvh] overflow-hidden bg-[#0f1115]">
       <div className="flex h-full w-full flex-col">
@@ -403,10 +543,17 @@ export default function FlowCanvas() {
 
           {/* Canvas */}
           <div className="relative min-h-0 flex-1">
-            <div className="absolute inset-0">
+            <div className="absolute inset-0 pb-10">
               <ReactFlow
-                nodes={nodes}
-                edges={edges}
+                key={
+                  activeSheet
+                    ? `sheet-${activeSheet.id}`
+                    : documentId
+                    ? `doc-${documentId}`
+                    : "draft"
+                } 
+                nodes={displayNodes}
+                edges={displayEdges}
                 nodeTypes={nodeTypes}
                 edgeTypes={edgeTypes}
                 onNodesChange={onNodesChange}
@@ -457,9 +604,28 @@ export default function FlowCanvas() {
                     >
                       {toolbarOpen ? "Ocultar toolbar" : "Mostrar toolbar"}
                     </button>
+                    <button
+                      onClick={() => setShareModalOpen(true)}
+                      className="rounded-md border border-white/10 bg-blue-600 px-3 py-2 text-xs text-white hover:bg-blue-700"
+                    >
+                      Compartir
+                    </button>
                   </div>
                 </Panel>
               </ReactFlow>
+              <ShareModal
+                isOpen={shareModalOpen}
+                onClose={() => setShareModalOpen(false)}
+                documentId={documentId || ""}
+              />
+              {/* Tabs de hojas */}
+              {documentId && (
+                <SheetTabs
+                  documentId={documentId}
+                  activeSheetId={activeSheet?.id || null}
+                  onSheetChange={(sheet) => setActiveSheet(sheet)}
+                />
+              )}
             </div>
           </div>
         </div>

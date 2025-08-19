@@ -4,6 +4,7 @@ import HomePage from "./pages/HomePage";
 import BoardPage from "./pages/BoardPage";
 import ProfilePage from "./pages/ProfilePage";
 import RequireAuth from "./components/auth/RequireAuth";
+import SharedDocument from "./pages/SharedDocumentPage";
 
 export default function App() {
   return (
@@ -49,6 +50,7 @@ export default function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/templates" element={<HomePage />} />
           <Route path="/documents" element={<HomePage />} />
+          <Route path="/shared/:token" element={<SharedDocument />} />
         </Routes>
       </main>
     </div>
