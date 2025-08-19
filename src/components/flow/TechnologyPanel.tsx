@@ -1,18 +1,25 @@
-import { ChevronDown, ChevronRight, Search } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  Search,
+  Globe,
+  Shield,
+  Database,
+  Cloud as CloudIcon,
+  Cpu,
+  Network,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 import type {
   SecurityCategory,
   SecurityTechnology,
 } from "../types/securityTypes";
 import { securityTechnologies } from "../data/SecurityTechnologies";
+import { zoneTemplates } from "../data/zones"; // <-- ajusta si tu ruta es distinta
 
-interface TechnologyPanelProps {
-  /** Handler opcional para iniciar drag hacia React Flow */
-  onDragStart?: (
-    event: React.DragEvent,
-    technology: SecurityTechnology
-  ) => void;
-  /** Permite sobreescribir clases externas (ancho, bordes, etc.) */
+interface SidebarProps {
+  onNodeSelect?: (nodeType: string) => void; // opcional
+  onCreateZone?: (templateId: string) => void; // crear zona por click
   className?: string;
 }
 
@@ -33,16 +40,55 @@ const categoryNames: Record<SecurityCategory, string> = {
   network: "Network",
 };
 
-export const TechnologyPanel: React.FC<TechnologyPanelProps> = ({
-  onDragStart,
+const zoneIcon = (id: string) => {
+  switch (id) {
+    case "internet":
+      return Globe;
+    case "dmz":
+      return Shield;
+    case "datacenter":
+      return Database;
+    case "cloud":
+      return CloudIcon;
+    case "ot":
+      return Cpu;
+    case "lan":
+    default:
+      return Network;
+  }
+};
+
+export const TechnologyPanel: React.FC<SidebarProps> = ({
   className = "",
+  onNodeSelect,
+  onCreateZone,
 }) => {
   const [expanded, setExpanded] = useState<Set<SecurityCategory>>(
-    // categorías abiertas por defecto en la demo
     () => new Set<SecurityCategory>(["firewall", "waf", "ips"])
   );
+  const [zonesOpen, setZonesOpen] = useState(false); // 👈 desplegable de zonas
   const [searchTerm, setSearchTerm] = useState("");
 
+  // DRAG de tecnologías (igual que antes)
+  const onTechDragStart = (event: React.DragEvent, nodeType: string) => {
+    event.dataTransfer.setData("application/reactflow", nodeType);
+    event.dataTransfer.setData("text/plain", nodeType);
+    event.dataTransfer.effectAllowed = "move";
+    onNodeSelect?.(nodeType);
+  };
+
+  // DRAG de zonas (payload JSON + fallback)
+  const onZoneDragStart = (event: React.DragEvent, templateId: string) => {
+    event.dataTransfer.setData(
+      "application/reactflow",
+      JSON.stringify({ kind: "zone", templateId })
+    );
+
+    event.dataTransfer.setData("text/plain", `zone:${templateId}`);
+    event.dataTransfer.effectAllowed = "move";
+  };
+
+  // Filtro (solo tecnologías; si quieres que afecte a zonas avísame y lo integro)
   const filtered = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
     if (!q) return securityTechnologies;
@@ -96,7 +142,59 @@ export const TechnologyPanel: React.FC<TechnologyPanelProps> = ({
         </div>
       </div>
 
-      {/* Lista scrollable */}
+      {/* Zonas (desplegable compacto) */}
+      <div className="px-3 pt-3">
+        <button
+          onClick={() => setZonesOpen((o) => !o)}
+          className="w-full flex items-center justify-between rounded-md border border-white/10 bg-white/[0.03] px-3 py-2 hover:bg-white/[0.06] transition"
+          aria-expanded={zonesOpen}
+        >
+          <span className="text-sm font-medium">
+            Zonas de Seguridad{" "}
+            <span className="opacity-60">({zoneTemplates.length})</span>
+          </span>
+          {zonesOpen ? (
+            <ChevronDown className="h-4 w-4 text-white/60" />
+          ) : (
+            <ChevronRight className="h-4 w-4 text-white/60" />
+          )}
+        </button>
+
+        {zonesOpen && (
+          <div className="mt-2 space-y-2">
+            {zoneTemplates.map((z) => {
+              const Icon = zoneIcon(z.id);
+              return (
+                <div
+                  key={z.id}
+                  draggable
+                  onDragStart={(e) => onZoneDragStart(e, z.id)}
+                  onClick={() => onCreateZone?.(z.id)}
+                  className="cursor-grab active:cursor-grabbing p-3 rounded-lg border border-white/10 bg-white/[0.03] hover:bg-white/[0.06] transition flex items-center gap-3"
+                >
+                  <div
+                    className="p-2 rounded-md"
+                    style={{ backgroundColor: `${z.color}22`, color: z.color }}
+                  >
+                    <Icon size={16} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium truncate">{z.name}</div>
+                    <div className="text-xs text-white/60 truncate">
+                      {z.description}
+                    </div>
+                  </div>
+                  <div className="text-[10px] px-2 py-0.5 rounded-full border border-white/10 text-white/60">
+                    {z.level.toUpperCase()}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Lista scrollable de tecnologías */}
       <div className="min-h-0 flex-1 overflow-y-auto p-3 space-y-2">
         {Object.entries(grouped).length === 0 && (
           <div className="text-xs text-white/60 px-2">
@@ -130,10 +228,8 @@ export const TechnologyPanel: React.FC<TechnologyPanelProps> = ({
                   {techs.map((t) => (
                     <div
                       key={t.id}
-                      draggable={!!onDragStart}
-                      onDragStart={
-                        onDragStart ? (e) => onDragStart(e, t) : undefined
-                      }
+                      draggable
+                      onDragStart={(event) => onTechDragStart(event, t.id)}
                       className={[
                         "mx-3 mb-2 rounded-md border border-white/10 bg-white/[0.03] hover:bg-white/[0.06]",
                         "cursor-grab active:cursor-grabbing",

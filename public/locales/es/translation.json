@@ -1,0 +1,30 @@
+{
+  "navbar": {
+    "home": "Inicio",
+    "login": "Iniciar sesión",
+    "logout": "Cerrar sesión"
+  },
+  "home": {
+    "welcome": "Bienvenido",
+    "subtitle": "Crea diagramas claros y colabora en tiempo real.",
+    "loadingTemplates": "Cargando tus plantillas…"
+  },
+  "header": {
+    "searchPlaceholder": "Buscar plantillas o documentos...",
+    "new": "Nuevo"
+  },
+  "sidebar": {
+    "new": "Nuevo",
+    "home": "Inicio",
+    "documents": "Documentos",
+    "templates": "Plantillas",
+    "personal": "Personal"
+  },
+  "sections": {
+    "orgChart": "Organigrama",
+    "mindMap": "Mapa mental",
+    "flowchart": "Diagrama de flujo",
+    "conceptMap": "Mapa conceptual"
+  },
+  "common": { "new": "Nuevo" }
+}

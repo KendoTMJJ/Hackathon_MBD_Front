@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { Auth0Provider } from "@auth0/auth0-react";
 import "./index.css";
+import "./i18n";
 import App from "./App";
 
 const domain = import.meta.env.VITE_AUTH0_DOMAIN as string;
