@@ -1,8 +1,7 @@
-// src/hooks/useProjects.ts
 import { useApi } from "./useApi";
 import type { Project } from "../models";
 
-export function useProjects() {
+export function useProject() {
   const api = useApi();
 
   return {

@@ -33,10 +33,13 @@ import { useCollab } from "../../hooks/useCollab";
 import { useApi } from "../../hooks/useApi";
 import { useDocumentStore, useDocumentsApi } from "../../hooks/useDocument";
 
-import { useProjects } from "../../hooks/useProject";
 import type { DocumentData } from "../../models";
 import { useTemplates } from "../../hooks/useTemplate";
+import { useProject } from "../../hooks/useProject";
+import { zoneTemplates } from "../data/zones";
+import { zoneTypes } from "./zones";
 
+<<<<<<< HEAD
 import ShareModal from "../modals/ShareModal";
 import { useSheets } from "../../hooks/useSheets";
 import SheetTabs from "../modals/SheetTabs";
@@ -56,11 +59,19 @@ const initialNodes: Node[] = [
   },
 ];
 const initialEdges: Edge[] = [{ id: "e-n1-n2", source: "n1", target: "n2" }];
+=======
+const initialNodes: Node[] = [];
+const initialEdges: Edge[] = [];
+>>>>>>> e80b7f08cc80b170f4952ba83239007d1c9f227c
 
 const fitViewOptions: FitViewOptions = { padding: 0.2 };
 const defaultEdgeOptions: DefaultEdgeOptions = { animated: true };
 const onNodeDrag: OnNodeDrag = () => {};
 const TOOLBAR_H = 65;
+
+const allNodeTypes = { ...nodeTypes, ...zoneTypes };
+
+type ZoneKind = (typeof zoneTemplates)[number]["id"];
 
 export default function FlowCanvas() {
   const nav = useNavigate();
@@ -81,7 +92,7 @@ export default function FlowCanvas() {
   const api = useApi(); // para inyectar en el store
   const documentsApi = useDocumentsApi();
   const templatesApi = useTemplates();
-  const projectsApi = useProjects();
+  const projectsApi = useProject();
 
   // Store + colab (solo cuando hay documentId)
   const { doc, load, save, applyLocalPatch, setApiReady, setDoc } =
@@ -94,23 +105,20 @@ export default function FlowCanvas() {
     setApiReady(() => api);
   }, [api, setApiReady]);
 
-  // Carga documento si hay id
   useEffect(() => {
     if (documentId) load(documentId);
   }, [documentId, load]);
 
-  // 3) Estado dual: persistido (store) o borrador (local)
   const storeNodes = useMemo<Node[]>(
-    () => (doc?.data?.nodes as Node[]) ?? initialNodes,
+    () => (doc?.data?.nodes as Node[]) ?? [],
     [doc]
   );
   const storeEdges = useMemo<Edge[]>(
-    () => (doc?.data?.edges as Edge[]) ?? initialEdges,
+    () => (doc?.data?.edges as Edge[]) ?? [],
     [doc]
   );
-
-  const [draftNodes, setDraftNodes] = useState<Node[]>(initialNodes);
-  const [draftEdges, setDraftEdges] = useState<Edge[]>(initialEdges);
+  const [draftNodes, setDraftNodes] = useState<Node[]>([]);
+  const [draftEdges, setDraftEdges] = useState<Edge[]>([]);
   const [title, setTitle] = useState<string>("");
 
   const [sheetNodes, setSheetNodes] = useState<Node[]>([]);
@@ -140,6 +148,7 @@ export default function FlowCanvas() {
       try {
         const tpl = await templatesApi.get(String(draftTemplateId));
         const tplData = (tpl?.data ?? {}) as { nodes?: Node[]; edges?: Edge[] };
+<<<<<<< HEAD
         setDraftNodes(
           Array.isArray(tplData.nodes) && tplData.nodes.length > 0
             ? tplData.nodes
@@ -150,6 +159,10 @@ export default function FlowCanvas() {
             ? tplData.edges
             : initialEdges
         );
+=======
+        setDraftNodes(Array.isArray(tplData.nodes) ? tplData.nodes : []);
+        setDraftEdges(Array.isArray(tplData.edges) ? tplData.edges : []);
+>>>>>>> e80b7f08cc80b170f4952ba83239007d1c9f227c
       } catch {
         setDraftNodes(initialNodes);
         setDraftEdges(initialEdges);
@@ -316,6 +329,116 @@ export default function FlowCanvas() {
       persistSheet,
       isChangingSheet,
     ]
+  );
+
+  const onDragOver = useCallback((event: React.DragEvent) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+  }, []);
+
+  const onDrop = useCallback(
+    (event: React.DragEvent) => {
+      event.preventDefault();
+      if (!rf) return;
+
+      const raw = event.dataTransfer.getData("application/reactflow");
+      const txt = event.dataTransfer.getData("text/plain");
+
+      const position = rf.screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      });
+
+      let newNode: Node | null = null;
+
+      // 3.a) ZONA (se envía como JSON { kind:"zone", templateId })
+      if (raw) {
+        try {
+          const payload = JSON.parse(raw);
+          if (payload?.kind === "zone" && payload?.templateId) {
+            const tpl = zoneTemplates.find((z) => z.id === payload.templateId);
+            if (!tpl) return;
+
+            const kind: ZoneKind = payload.templateId;
+            const width = 420; // ajusta tamaño de tus zonas
+            const height = 160;
+
+            newNode = {
+              id: `zone-${kind}-${Date.now()}`,
+              type: "zone", // tu ZoneNode
+              position,
+              data: {
+                id: kind,
+                name: tpl.name,
+                description: tpl.description,
+                color: tpl.color,
+                level: tpl.level,
+                kind,
+              },
+              // 👇 importante para ser contenedor (extent:'parent' usa estas medidas)
+              style: { width, height },
+              draggable: true,
+              selectable: true,
+              zIndex: 0,
+            };
+          }
+        } catch {
+          /* no era JSON, cae abajo como tecnología */
+        }
+      }
+
+      // 3.b) TECNOLOGÍA (string). Si cae dentro de una zona, será hija.
+      if (!newNode) {
+        const nodeType = raw || txt || "default";
+
+        // busca zonas existentes (type === 'zone')
+        const allNodes = documentId
+          ? (useDocumentStore.getState().doc?.data?.nodes as Node[]) ?? []
+          : draftNodes;
+
+        const zones = allNodes.filter((n) => n.type === "zone");
+
+        const parent = zones.find((z) => pointInRect(position, z));
+
+        if (parent) {
+          const rel = {
+            x: position.x - parent.position.x,
+            y: position.y - parent.position.y,
+          };
+          newNode = {
+            id: `n-${Date.now()}`,
+            type: nodeType,
+            position: rel, // posición relativa
+            data: { label: nodeType },
+            parentId: parent.id, // 👈 padre
+            extent: "parent", // 👈 contención
+            zIndex: 1,
+          };
+        } else {
+          newNode = {
+            id: `n-${Date.now()}`,
+            type: nodeType,
+            position,
+            data: { label: nodeType },
+          };
+        }
+      }
+
+      if (!newNode) return;
+
+      if (documentId) {
+        const current = useDocumentStore.getState().doc;
+        const currentNodes = (current?.data?.nodes as Node[]) ?? [];
+        const nextNodes = [...currentNodes, newNode];
+        const patch = { nodes: nextNodes };
+        applyLocalPatch(patch);
+        sendChange(patch);
+        debouncedSave();
+      } else {
+        setDraftNodes((nds) => nds.concat(newNode!));
+      }
+    },
+    [rf, documentId, draftNodes, applyLocalPatch, sendChange, debouncedSave]
   );
 
   const handleTitleInput = useCallback(
@@ -499,6 +622,7 @@ export default function FlowCanvas() {
     return () => clearTimeout(t);
   }, [toolbarOpen, rf]);
 
+<<<<<<< HEAD
   const displayNodes = useMemo(() => {
     return activeSheet ? sheetNodes : documentId ? storeNodes : draftNodes;
   }, [activeSheet, sheetNodes, documentId, storeNodes, draftNodes]);
@@ -506,6 +630,20 @@ export default function FlowCanvas() {
   const displayEdges = useMemo(() => {
     return activeSheet ? sheetEdges : documentId ? storeEdges : draftEdges;
   }, [activeSheet, sheetEdges, documentId, storeEdges, draftEdges]);
+=======
+  function pointInRect(p: { x: number; y: number }, n: Node) {
+    const w = Number((n.style as any)?.width ?? 0);
+    const h = Number((n.style as any)?.height ?? 0);
+    return (
+      w > 0 &&
+      h > 0 &&
+      p.x >= n.position.x &&
+      p.y >= n.position.y &&
+      p.x <= n.position.x + w &&
+      p.y <= n.position.y + h
+    );
+  }
+>>>>>>> e80b7f08cc80b170f4952ba83239007d1c9f227c
 
   return (
     <div className="w-screen h-[100dvh] overflow-hidden bg-[#0f1115]">
@@ -536,7 +674,11 @@ export default function FlowCanvas() {
           >
             {sidebarOpen && (
               <div className="h-full overflow-y-auto">
-                <TechnologyPanel />
+                <TechnologyPanel
+                  onNodeSelect={(nodeType) => {
+                    console.log("Arrastrando nodo:", nodeType);
+                  }}
+                />
               </div>
             )}
           </aside>
@@ -545,6 +687,7 @@ export default function FlowCanvas() {
           <div className="relative min-h-0 flex-1">
             <div className="absolute inset-0 pb-10">
               <ReactFlow
+<<<<<<< HEAD
                 key={
                   activeSheet
                     ? `sheet-${activeSheet.id}`
@@ -555,6 +698,11 @@ export default function FlowCanvas() {
                 nodes={displayNodes}
                 edges={displayEdges}
                 nodeTypes={nodeTypes}
+=======
+                nodes={nodes}
+                edges={edges}
+                nodeTypes={allNodeTypes}
+>>>>>>> e80b7f08cc80b170f4952ba83239007d1c9f227c
                 edgeTypes={edgeTypes}
                 onNodesChange={onNodesChange}
                 onEdgesChange={onEdgesChange}
@@ -564,6 +712,8 @@ export default function FlowCanvas() {
                 fitViewOptions={fitViewOptions}
                 defaultEdgeOptions={defaultEdgeOptions}
                 onInit={setRf}
+                onDrop={onDrop}
+                onDragOver={onDragOver}
               >
                 <Background />
                 <Controls />
