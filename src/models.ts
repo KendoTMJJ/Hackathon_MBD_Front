@@ -1,3 +1,4 @@
+import { Sheet } from '../../Hackathon_MBD_Back/src/entities/sheet/sheet';
 // src/models/index.ts
 export type Role = "owner" | "editor" | "reader";
 export type Kind = "diagram" | "template";
@@ -41,6 +42,7 @@ export interface DocumentEntity {
   projectId: string; // project_id
   createdAt: string; // created_at
   updatedAt: string; // updated_at
+  sheets: Sheet[];
 }
 
 export interface TemplateEntity {
@@ -97,6 +99,7 @@ export interface ShareLinkResponse {
 
 export interface SharedDocumentAccess {
   document: any;
+  sheets: SheetEntity[];
   permission: "read" | "edit";
 }
 
@@ -110,6 +113,7 @@ export interface SheetEntity {
   updatedAt: string;
   documentId: string;
 }
+
 
 export interface CreateSheetRequest {
   name: string;
@@ -125,5 +129,4 @@ export interface UpdateSheetRequest {
 export interface ReorderSheetsRequest {
   sheetIds: string[];
 }
-
 
