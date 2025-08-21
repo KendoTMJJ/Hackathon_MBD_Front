@@ -1,5 +1,3 @@
-"use client";
-
 import type React from "react";
 
 import {
@@ -23,7 +21,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useDebouncedCallback } from "use-debounce";
 import { useAuth0 } from "@auth0/auth0-react";
@@ -135,42 +133,64 @@ export default function FlowCanvas() {
   const { update, create: createSheet } = useSheets(); // Agregado create para crear hojas
   const [activeSheet, setActiveSheet] = useState<any>(null);
   const [isChangingSheet, setIsChangingSheet] = useState(false);
+  const [hasInteracted, setHasInteracted] = useState(false);
 
   const [rf, setRf] = useState<ReactFlowInstance | null>(null);
 
+  // Track if user has interacted with the viewport manually
+  const hasUserInteracted = useRef(false);
+  const lastInteractionTime = useRef(0);
+
+  // Handler para detectar interacción del usuario
+  const handleViewportChange = useCallback(() => {
+    hasUserInteracted.current = true;
+    lastInteractionTime.current = Date.now();
+    setHasInteracted(true);
+  }, []);
+
   // cargar plantilla (borrador) con useTemplates()
   useEffect(() => {
-    if (documentId) {
-      setTitle(doc?.title ?? "");
+  if (documentId) {
+    setTitle(doc?.title ?? "");
+    return;
+  }
+  setTitle(draftTitleQ || "Nuevo diagrama");
+  (async () => {
+    if (!draftTemplateId) {
+      setDraftNodes(initialNodes);
+      setDraftEdges(initialEdges);
       return;
     }
-    setTitle(draftTitleQ || "Nuevo diagrama");
-    (async () => {
-      if (!draftTemplateId) {
-        setDraftNodes(initialNodes);
-        setDraftEdges(initialEdges);
-        return;
-      }
-      try {
-        const tpl = await templatesApi.get(String(draftTemplateId));
-        const tplData = (tpl?.data ?? {}) as { nodes?: Node[]; edges?: Edge[] };
-        setDraftNodes(
-          Array.isArray(tplData.nodes) && tplData.nodes.length > 0
-            ? tplData.nodes
-            : initialNodes
-        );
-        setDraftEdges(
-          Array.isArray(tplData.edges) && tplData.edges.length > 0
-            ? tplData.edges
-            : initialEdges
-        );
-      } catch {
-        setDraftNodes(initialNodes);
-        setDraftEdges(initialEdges);
-      }
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [documentId, draftTemplateId, draftTitleQ, doc?.title]);
+    try {
+      const tpl = await templatesApi.get(String(draftTemplateId));
+      const tplData = (tpl?.data ?? {}) as { nodes?: Node[]; edges?: Edge[] };
+      const newNodes = Array.isArray(tplData.nodes) && tplData.nodes.length > 0
+        ? tplData.nodes
+        : initialNodes;
+      const newEdges = Array.isArray(tplData.edges) && tplData.edges.length > 0
+        ? tplData.edges
+        : initialEdges;
+
+      setDraftNodes(newNodes);
+      setDraftEdges(newEdges);
+
+      // Reset interaction flag when loading template to allow auto-fit
+      setHasInteracted(false);
+      
+      // Forzar un nuevo renderizado y ajuste de vista después de cargar la plantilla
+      setTimeout(() => {
+        if (rf && newNodes.length > 0) {
+          rf.fitView({ padding: 0.2, duration: 300 });
+        }
+      }, 100);
+    } catch {
+      setDraftNodes(initialNodes);
+      setDraftEdges(initialEdges);
+    }
+  })();
+}, [documentId, draftTemplateId, draftTitleQ, doc?.title]);
+
+  // Handle sheet changes with improved fitView logic
   useEffect(() => {
     if (!activeSheet) {
       setSheetNodes([]);
@@ -203,7 +223,13 @@ export default function FlowCanvas() {
         }));
       }
 
-      setTimeout(() => rf?.fitView(fitViewOptions), 100);
+      // Only auto-fit if user hasn't interacted recently (within 3 seconds)
+      const timeSinceInteraction = Date.now() - lastInteractionTime.current;
+      if (!hasUserInteracted.current || timeSinceInteraction > 3000) {
+        setTimeout(() => rf?.fitView(fitViewOptions), 100);
+      }
+      // Reset interaction flag when changing sheets to allow auto-fit
+      setHasInteracted(false);
     } catch (error) {
       console.error("Error loading sheet data:", error);
       setSheetNodes([]);
@@ -480,7 +506,7 @@ export default function FlowCanvas() {
     documentsApi,
     projectsApi,
     nav,
-    createInitialSheet, // Agregada dependencia
+    createInitialSheet,
   ]);
 
   // 7.b) Actualizar Template usando useTemplates()
@@ -529,20 +555,44 @@ export default function FlowCanvas() {
     title,
   ]);
 
-  // 8) FitView al abrir/cerrar paneles
-  useEffect(() => {
-    const t = setTimeout(() => rf?.fitView(fitViewOptions), 220);
-    return () => clearTimeout(t);
-  }, [sidebarOpen, rf]);
-  useEffect(() => {
-    const t = setTimeout(() => rf?.fitView(fitViewOptions), 220);
-    return () => clearTimeout(t);
-  }, [toolbarOpen, rf]);
+  // Mover displayNodes y displayEdges antes de los useEffect que los usan
+  const displayNodes = useMemo(() => {
+    return activeSheet ? sheetNodes : documentId ? storeNodes : draftNodes;
+  }, [activeSheet, sheetNodes, documentId, storeNodes, draftNodes]);
 
+  const displayEdges = useMemo(() => {
+    return activeSheet ? sheetEdges : documentId ? storeEdges : draftEdges;
+  }, [activeSheet, sheetEdges, documentId, storeEdges, draftEdges]);
+  
   const onDragOver = useCallback((event: React.DragEvent) => {
-    event.preventDefault();
-    event.dataTransfer.dropEffect = "move";
-  }, []);
+ event.preventDefault();
+  event.dataTransfer.dropEffect = "move";
+ }, []);
+
+  useEffect(() => {
+  if (draftTemplateId && !hasInteracted) {
+    // Ajustar la vista solo cuando se carga una plantilla y no hay interacción previa
+    const timer = setTimeout(() => {
+      if (rf && displayNodes.length > 0) {
+        rf.fitView(fitViewOptions);
+      }
+    }, 100);
+    return () => clearTimeout(timer);
+  }
+}, [draftTemplateId, rf, displayNodes, hasInteracted]);
+
+// Y este efecto específico para hojas
+useEffect(() => {
+  if (activeSheet && !hasInteracted) {
+    // Ajustar la vista solo cuando se cambia de hoja y no hay interacción previa
+    const timer = setTimeout(() => {
+      if (rf && displayNodes.length > 0) {
+        rf.fitView(fitViewOptions);
+      }
+    }, 100);
+    return () => clearTimeout(timer);
+  }
+}, [activeSheet, rf, displayNodes, hasInteracted]);
 
   const onDrop = useCallback(
     (event: React.DragEvent) => {
@@ -664,14 +714,6 @@ export default function FlowCanvas() {
     ]
   );
 
-  const displayNodes = useMemo(() => {
-    return activeSheet ? sheetNodes : documentId ? storeNodes : draftNodes;
-  }, [activeSheet, sheetNodes, documentId, storeNodes, draftNodes]);
-
-  const displayEdges = useMemo(() => {
-    return activeSheet ? sheetEdges : documentId ? storeEdges : draftEdges;
-  }, [activeSheet, sheetEdges, documentId, storeEdges, draftEdges]);
-
   function pointInRect(p: { x: number; y: number }, n: Node) {
     const w = Number((n.style as any)?.width ?? 0);
     const h = Number((n.style as any)?.height ?? 0);
@@ -748,6 +790,7 @@ export default function FlowCanvas() {
                 onInit={setRf}
                 onDrop={onDrop}
                 onDragOver={onDragOver}
+                onViewportChange={handleViewportChange}
               >
                 <Background />
                 <Controls />
