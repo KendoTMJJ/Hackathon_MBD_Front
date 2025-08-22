@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { useSheets } from "../../hooks/useSheets";
 import type { SheetEntity } from "../../models";
+import { useSheets } from "../../hooks/useSheets";
 
 interface Props {
   documentId: string;
@@ -8,7 +8,11 @@ interface Props {
   onSheetChange: (sheet: SheetEntity) => void;
 }
 
-export default function SheetTabs({ documentId, activeSheetId, onSheetChange }: Props) {
+export default function SheetTabs({
+  documentId,
+  activeSheetId,
+  onSheetChange,
+}: Props) {
   const { listByDocument, create, update, remove } = useSheets();
   const [sheets, setSheets] = useState<SheetEntity[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -37,7 +41,9 @@ export default function SheetTabs({ documentId, activeSheetId, onSheetChange }: 
         name: `Hoja ${sheets.length + 1}`,
         data: { nodes: [], edges: [] }, // Asegurar que esté vacía
       });
-      const next = [...sheets, newSheet].sort((a, b) => a.orderIndex - b.orderIndex);
+      const next = [...sheets, newSheet].sort(
+        (a, b) => a.orderIndex - b.orderIndex
+      );
       setSheets(next);
       onSheetChange(newSheet); // Cambiar a la nueva hoja inmediatamente
     } catch (e) {
@@ -85,7 +91,9 @@ export default function SheetTabs({ documentId, activeSheetId, onSheetChange }: 
           <div
             key={s.id}
             className={`group flex items-center rounded-md border border-white/10 ${
-              s.id === activeSheetId ? "bg-blue-600 text-white" : "bg-[#171727] text-gray-300"
+              s.id === activeSheetId
+                ? "bg-blue-600 text-white"
+                : "bg-[#171727] text-gray-300"
             }`}
           >
             {editingId === s.id ? (

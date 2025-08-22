@@ -45,21 +45,8 @@ import SheetTabs from "../modals/SheetTabs";
 import { zoneTemplates } from "../data/zones";
 import { zoneTypes } from "./zones";
 
-const initialNodes: Node[] = [
-  {
-    id: "n1",
-    type: "cloud",
-    position: { x: 0, y: 0 },
-    data: { label: "Servidor en la nube" },
-  },
-  {
-    id: "n2",
-    type: "cloud",
-    position: { x: 0, y: 100 },
-    data: { label: "Base de Datos en Nube" },
-  },
-];
-const initialEdges: Edge[] = [{ id: "e-n1-n2", source: "n1", target: "n2" }];
+const initialNodes: Node[] = [];
+const initialEdges: Edge[] = [];
 
 const fitViewOptions: FitViewOptions = { padding: 0.2 };
 const defaultEdgeOptions: DefaultEdgeOptions = { animated: true };
@@ -72,6 +59,17 @@ type ZoneKind = (typeof zoneTemplates)[number]["id"];
 
 export default function FlowCanvas() {
   const nav = useNavigate();
+
+  const miniMapNodeColor = useCallback((n: Node) => {
+    if (n.type === "zone") {
+      return (n.data as any)?.color ?? "#7c7c86";
+    }
+    return "#94a3b8";
+  }, []);
+
+  const miniMapStrokeColor = useCallback((n: Node) => {
+    return n.type === "zone" ? "#FFFFFF66" : "#00000033";
+  }, []);
 
   // 1) documentId o modo borrador (query)
   const { documentId: paramId } = useParams<{ documentId?: string }>();
@@ -102,23 +100,20 @@ export default function FlowCanvas() {
     setApiReady(() => api);
   }, [api, setApiReady]);
 
-  // Carga documento si hay id
   useEffect(() => {
     if (documentId) load(documentId);
   }, [documentId, load]);
 
-  // 3) Estado dual: persistido (store) o borrador (local)
   const storeNodes = useMemo<Node[]>(
-    () => (doc?.data?.nodes as Node[]) ?? initialNodes,
+    () => (doc?.data?.nodes as Node[]) ?? [],
     [doc]
   );
   const storeEdges = useMemo<Edge[]>(
-    () => (doc?.data?.edges as Edge[]) ?? initialEdges,
+    () => (doc?.data?.edges as Edge[]) ?? [],
     [doc]
   );
-
-  const [draftNodes, setDraftNodes] = useState<Node[]>(initialNodes);
-  const [draftEdges, setDraftEdges] = useState<Edge[]>(initialEdges);
+  const [draftNodes, setDraftNodes] = useState<Node[]>([]);
+  const [draftEdges, setDraftEdges] = useState<Edge[]>([]);
   const [title, setTitle] = useState<string>("");
 
   const [sheetNodes, setSheetNodes] = useState<Node[]>([]);
@@ -127,6 +122,11 @@ export default function FlowCanvas() {
   const [sheets, setSheets] = useState<
     Record<string, { nodes: Node[]; edges: Edge[] }>
   >({});
+
+  const sheetsRef = useRef(sheets);
+  useEffect(() => {
+    sheetsRef.current = sheets;
+  }, [sheets]);
 
   const [shareModalOpen, setShareModalOpen] = useState(false);
   // Sheets
@@ -150,45 +150,47 @@ export default function FlowCanvas() {
 
   // cargar plantilla (borrador) con useTemplates()
   useEffect(() => {
-  if (documentId) {
-    setTitle(doc?.title ?? "");
-    return;
-  }
-  setTitle(draftTitleQ || "Nuevo diagrama");
-  (async () => {
-    if (!draftTemplateId) {
-      setDraftNodes(initialNodes);
-      setDraftEdges(initialEdges);
+    if (documentId) {
+      setTitle(doc?.title ?? "");
       return;
     }
-    try {
-      const tpl = await templatesApi.get(String(draftTemplateId));
-      const tplData = (tpl?.data ?? {}) as { nodes?: Node[]; edges?: Edge[] };
-      const newNodes = Array.isArray(tplData.nodes) && tplData.nodes.length > 0
-        ? tplData.nodes
-        : initialNodes;
-      const newEdges = Array.isArray(tplData.edges) && tplData.edges.length > 0
-        ? tplData.edges
-        : initialEdges;
+    setTitle(draftTitleQ || "Nuevo diagrama");
+    (async () => {
+      if (!draftTemplateId) {
+        setDraftNodes(initialNodes);
+        setDraftEdges(initialEdges);
+        return;
+      }
+      try {
+        const tpl = await templatesApi.get(String(draftTemplateId));
+        const tplData = (tpl?.data ?? {}) as { nodes?: Node[]; edges?: Edge[] };
+        const newNodes =
+          Array.isArray(tplData.nodes) && tplData.nodes.length > 0
+            ? tplData.nodes
+            : initialNodes;
+        const newEdges =
+          Array.isArray(tplData.edges) && tplData.edges.length > 0
+            ? tplData.edges
+            : initialEdges;
 
-      setDraftNodes(newNodes);
-      setDraftEdges(newEdges);
+        setDraftNodes(newNodes);
+        setDraftEdges(newEdges);
 
-      // Reset interaction flag when loading template to allow auto-fit
-      setHasInteracted(false);
-      
-      // Forzar un nuevo renderizado y ajuste de vista después de cargar la plantilla
-      setTimeout(() => {
-        if (rf && newNodes.length > 0) {
-          rf.fitView({ padding: 0.2, duration: 300 });
-        }
-      }, 100);
-    } catch {
-      setDraftNodes(initialNodes);
-      setDraftEdges(initialEdges);
-    }
-  })();
-}, [documentId, draftTemplateId, draftTitleQ, doc?.title]);
+        // Reset interaction flag when loading template to allow auto-fit
+        setHasInteracted(false);
+
+        // Forzar un nuevo renderizado y ajuste de vista después de cargar la plantilla
+        setTimeout(() => {
+          if (rf && newNodes.length > 0) {
+            rf.fitView({ padding: 0.2, duration: 300 });
+          }
+        }, 100);
+      } catch {
+        setDraftNodes(initialNodes);
+        setDraftEdges(initialEdges);
+      }
+    })();
+  }, [documentId, draftTemplateId, draftTitleQ, doc?.title]);
 
   // Handle sheet changes with improved fitView logic
   useEffect(() => {
@@ -200,44 +202,41 @@ export default function FlowCanvas() {
 
     setIsChangingSheet(true);
     try {
-      // Check if we have local data for this sheet first
-      if (sheets[activeSheet.id]) {
-        setSheetNodes(sheets[activeSheet.id].nodes);
-        setSheetEdges(sheets[activeSheet.id].edges);
+      const cached = sheetsRef.current[activeSheet.id];
+      if (cached) {
+        setSheetNodes(cached.nodes);
+        setSheetEdges(cached.edges);
       } else {
-        // If no local data, load from database and store locally
         const newNodes = Array.isArray(activeSheet.data?.nodes)
-          ? activeSheet.data.nodes
+          ? (activeSheet.data.nodes as Node[])
           : [];
         const newEdges = Array.isArray(activeSheet.data?.edges)
-          ? activeSheet.data.edges
+          ? (activeSheet.data.edges as Edge[])
           : [];
-
         setSheetNodes(newNodes);
         setSheetEdges(newEdges);
-
-        // Store in local state for future switches
+        // guarda en caché para futuros switches
         setSheets((prev) => ({
           ...prev,
           [activeSheet.id]: { nodes: newNodes, edges: newEdges },
         }));
       }
 
-      // Only auto-fit if user hasn't interacted recently (within 3 seconds)
+      // Solo auto-fit si el usuario no interactuó recientemente
       const timeSinceInteraction = Date.now() - lastInteractionTime.current;
       if (!hasUserInteracted.current || timeSinceInteraction > 3000) {
         setTimeout(() => rf?.fitView(fitViewOptions), 100);
       }
-      // Reset interaction flag when changing sheets to allow auto-fit
       setHasInteracted(false);
-    } catch (error) {
-      console.error("Error loading sheet data:", error);
+    } catch (err) {
+      console.error("Error loading sheet data:", err);
       setSheetNodes([]);
       setSheetEdges([]);
     } finally {
       setIsChangingSheet(false);
     }
-  }, [activeSheet, rf, sheets]);
+    // 🔴 Importante: NO dependemos de `sheets` aquí para evitar re-fit en cada autosave
+  }, [activeSheet, rf]);
 
   // 4) UI
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -563,36 +562,36 @@ export default function FlowCanvas() {
   const displayEdges = useMemo(() => {
     return activeSheet ? sheetEdges : documentId ? storeEdges : draftEdges;
   }, [activeSheet, sheetEdges, documentId, storeEdges, draftEdges]);
-  
+
   const onDragOver = useCallback((event: React.DragEvent) => {
- event.preventDefault();
-  event.dataTransfer.dropEffect = "move";
- }, []);
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+  }, []);
 
   useEffect(() => {
-  if (draftTemplateId && !hasInteracted) {
-    // Ajustar la vista solo cuando se carga una plantilla y no hay interacción previa
-    const timer = setTimeout(() => {
-      if (rf && displayNodes.length > 0) {
-        rf.fitView(fitViewOptions);
-      }
-    }, 100);
-    return () => clearTimeout(timer);
-  }
-}, [draftTemplateId, rf, displayNodes, hasInteracted]);
+    if (draftTemplateId && !hasInteracted) {
+      // Ajustar la vista solo cuando se carga una plantilla y no hay interacción previa
+      const timer = setTimeout(() => {
+        if (rf && displayNodes.length > 0) {
+          rf.fitView(fitViewOptions);
+        }
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [draftTemplateId, rf, displayNodes, hasInteracted]);
 
-// Y este efecto específico para hojas
-useEffect(() => {
-  if (activeSheet && !hasInteracted) {
-    // Ajustar la vista solo cuando se cambia de hoja y no hay interacción previa
-    const timer = setTimeout(() => {
-      if (rf && displayNodes.length > 0) {
-        rf.fitView(fitViewOptions);
-      }
-    }, 100);
-    return () => clearTimeout(timer);
-  }
-}, [activeSheet, rf, displayNodes, hasInteracted]);
+  // Y este efecto específico para hojas
+  useEffect(() => {
+    if (activeSheet && !hasInteracted) {
+      // Ajustar la vista solo cuando se cambia de hoja y no hay interacción previa
+      const timer = setTimeout(() => {
+        if (rf && displayNodes.length > 0) {
+          rf.fitView(fitViewOptions);
+        }
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [activeSheet, rf, displayNodes, hasInteracted]);
 
   const onDrop = useCallback(
     (event: React.DragEvent) => {
@@ -631,10 +630,42 @@ useEffect(() => {
                 color: tpl.color,
                 level: tpl.level,
                 kind,
+                title: "",
+                onRename: (nodeId: string, newTitle: string) => {
+                  if (activeSheet) {
+                    setSheetNodes((nds) => {
+                      const next = nds.map((n) =>
+                        n.id === nodeId
+                          ? { ...n, data: { ...n.data, title: newTitle } }
+                          : n
+                      );
+                      persistSheet(next, sheetEdges);
+                      return next;
+                    });
+                  } else if (documentId) {
+                    const current = useDocumentStore.getState().doc;
+                    const currentNodes = (current?.data?.nodes as Node[]) ?? [];
+                    const nextNodes = currentNodes.map((n) =>
+                      n.id === nodeId
+                        ? { ...n, data: { ...n.data, title: newTitle } }
+                        : n
+                    );
+                    const patch = { nodes: nextNodes };
+                    applyLocalPatch(patch);
+                    sendChange(patch);
+                    debouncedSave();
+                  } else {
+                    setDraftNodes((nds) =>
+                      nds.map((n) =>
+                        n.id === nodeId
+                          ? { ...n, data: { ...n.data, title: newTitle } }
+                          : n
+                      )
+                    );
+                  }
+                },
               },
               style: { width, height },
-              draggable: true,
-              selectable: true,
               zIndex: 0,
             };
           }
@@ -794,7 +825,13 @@ useEffect(() => {
               >
                 <Background />
                 <Controls />
-                <MiniMap />
+                <MiniMap
+                  nodeColor={miniMapNodeColor}
+                  nodeStrokeColor={miniMapStrokeColor}
+                  nodeStrokeWidth={2}
+                  pannable
+                  zoomable
+                />
 
                 {/* Título */}
                 <Panel position="top-left">

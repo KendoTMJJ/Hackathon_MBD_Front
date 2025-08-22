@@ -1,6 +1,11 @@
-// src/components/zones/ZoneNode.tsx
 import React from "react";
-import { Handle, Position } from "@xyflow/react";
+import {
+  Handle,
+  Position,
+  NodeResizer,
+  useReactFlow,
+  useNodeId,
+} from "@xyflow/react";
 import {
   Maximize2,
   Settings,
@@ -11,23 +16,28 @@ import {
   Cloud as CloudIcon,
   Cpu,
   Network,
+  Pencil,
+  Check,
+  X,
 } from "lucide-react";
 
 type ZoneKind = "internet" | "dmz" | "lan" | "datacenter" | "cloud" | "ot";
 
 export interface SecurityZone {
   id: string;
-  name: string;
+  name: string; // nombre técnico de la zona (tipo)
   description?: string;
   color: string;
   level: "low" | "medium" | "high" | (string & {});
-  // añade aquí lo que ya tengas en tu tipo real
 }
 
 interface ZoneNodeProps {
   data: SecurityZone & {
     kind: ZoneKind;
-    // iconName?: IconName; // si quieres forzar un icono desde fuera
+    /** Título personalizado del usuario */
+    title?: string;
+    /** Persistencia opcional desde el canvas */
+    onRename?: (zoneId: string, newTitle: string) => void;
     onEdit?: (zone: SecurityZone) => void;
     onDelete?: (zoneId: string) => void;
     onExpand?: (zoneId: string) => void;
@@ -39,7 +49,7 @@ const VARIANTS: Record<
   ZoneKind,
   {
     Icon: React.ComponentType<{ size?: number; className?: string }>;
-    gradient: string; // overlay visual
+    gradient: string;
     badgeText: string;
     dropHint: string;
   }
@@ -106,14 +116,59 @@ export function ZoneNode({ data, selected }: ZoneNodeProps) {
   const borderColor = data.color;
   const bgColor = withAlpha(data.color, 0.08);
 
+  const [editing, setEditing] = React.useState(false);
+  const [tempTitle, setTempTitle] = React.useState(data.title ?? "");
+
+  const rf = useReactFlow();
+  const nodeId = useNodeId(); // <-- id REAL del nodo en el grafo
+
+  // Si cambia el nodo o su título, sincronizamos el input temporal
+  React.useEffect(() => {
+    setTempTitle(data.title ?? "");
+  }, [data.id, data.title]); // <-- incluye data.id
+
+  const commitTitle = React.useCallback(
+    (ok: boolean) => {
+      setEditing(false);
+      if (!ok) {
+        setTempTitle(data.title ?? "");
+        return;
+      }
+      const next = tempTitle.trim();
+
+      // evita commits inútiles
+      const current = (data.title ?? "").trim();
+      if (next === current) return;
+
+      if (data.onRename) {
+        data.onRename(data.id, next);
+      } else {
+        // Fallback local: usa nodeId real del nodo
+        rf.setNodes((nds) =>
+          nds.map((n) =>
+            n.id === nodeId ? { ...n, data: { ...n.data, title: next } } : n
+          )
+        );
+      }
+    },
+    [data.id, data.title, data.onRename, rf, tempTitle, nodeId]
+  );
+
   return (
     <div
-      className={`group relative rounded-xl border-2 p-4 min-w-[260px] min-h-[160px] bg-[#0b0e13]/80 ${
+      className={`group relative w-full h-full min-w-[260px] min-h-[160px] rounded-xl border-2 bg-[#0b0e13]/80 p-4 pointer-events-auto ${
         selected ? "ring-2 ring-blue-500/40 shadow-lg" : ""
       }`}
       style={{ borderColor, backgroundColor: bgColor }}
     >
-      {/* Overlay de gradiente por tipo */}
+      <NodeResizer
+        isVisible={!!selected}
+        minWidth={260}
+        minHeight={160}
+        lineStyle={{ borderColor }}
+        handleStyle={{ backgroundColor: borderColor }}
+      />
+
       <div
         aria-hidden
         className={`pointer-events-none absolute inset-0 rounded-xl bg-gradient-to-br ${variant.gradient}`}
@@ -178,11 +233,11 @@ export function ZoneNode({ data, selected }: ZoneNodeProps) {
         style={{ borderColor }}
       />
 
-      {/* Header */}
-      <div className="flex items-start justify-between mb-3 relative">
+      {/* Header — drag handle */}
+      <div className="zone-drag-handle relative mb-2 flex cursor-move select-none items-start justify-between">
         <div className="flex items-center gap-3">
           <div
-            className="p-2 rounded-lg"
+            className="rounded-lg p-2"
             style={{ backgroundColor: `${borderColor}26`, color: borderColor }}
           >
             <Icon size={16} />
@@ -191,6 +246,7 @@ export function ZoneNode({ data, selected }: ZoneNodeProps) {
             <div
               className="text-lg font-bold leading-5"
               style={{ color: borderColor }}
+              title={data.name}
             >
               {data.name}
             </div>
@@ -199,7 +255,7 @@ export function ZoneNode({ data, selected }: ZoneNodeProps) {
                 {variant.badgeText}
               </span>
               <span
-                className={`text-[10px] px-2 py-0.5 rounded-full ${levelBadge(
+                className={`rounded-full px-2 py-0.5 text-[10px] ${levelBadge(
                   String(data.level)
                 )}`}
               >
@@ -209,15 +265,14 @@ export function ZoneNode({ data, selected }: ZoneNodeProps) {
           </div>
         </div>
 
-        {/* Controles */}
-        <div className="flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="flex space-x-1 opacity-0 transition-opacity group-hover:opacity-100">
           {data.onExpand && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 data.onExpand!(data.id);
               }}
-              className="p-1 hover:bg-white/10 rounded transition-colors"
+              className="rounded p-1 hover:bg-white/10 nodrag nowheel" // <-- evita drag
               title="Expandir zona"
               aria-label="Expandir zona"
             >
@@ -230,7 +285,7 @@ export function ZoneNode({ data, selected }: ZoneNodeProps) {
                 e.stopPropagation();
                 data.onEdit!(data);
               }}
-              className="p-1 hover:bg-white/10 rounded transition-colors"
+              className="rounded p-1 hover:bg-white/10 nodrag nowheel" // <-- evita drag
               title="Editar zona"
               aria-label="Editar zona"
             >
@@ -243,7 +298,7 @@ export function ZoneNode({ data, selected }: ZoneNodeProps) {
                 e.stopPropagation();
                 data.onDelete!(data.id);
               }}
-              className="p-1 hover:bg-red-600/20 rounded transition-colors"
+              className="rounded p-1 hover:bg-red-600/20 nodrag nowheel" // <-- evita drag
               title="Eliminar zona"
               aria-label="Eliminar zona"
             >
@@ -253,22 +308,76 @@ export function ZoneNode({ data, selected }: ZoneNodeProps) {
         </div>
       </div>
 
-      {/* Descripción */}
-      {data.description && (
-        <p className="text-xs text-white/75 mb-3 relative">
-          {data.description}
-        </p>
-      )}
-
-      {/* Indicador de drop por tipo */}
-      <div className="pointer-events-none absolute inset-3 top-14 border-2 border-dashed border-transparent rounded-lg transition-all duration-200 flex items-center justify-center group">
-        <div className="text-center opacity-20 group-hover:opacity-60 transition-opacity">
-          <div className="text-xs text-white/70 font-medium">
-            {variant.dropHint}
+      <div className="mb-2">
+        {!editing ? (
+          <div className="flex items-center gap-2">
+            <div
+              className={`max-w-[520px] truncate text-base font-semibold ${
+                data.title ? "text-white" : "text-white/50 italic"
+              } nodrag nowheel`} // <-- evita drag sobre el texto
+              title={data.title || "Añade un título…"}
+              onDoubleClick={(e) => {
+                e.stopPropagation();
+                setEditing(true);
+              }}
+            >
+              {data.title || "Añade un título…"}
+            </div>
+            <button
+              className="rounded p-1 hover:bg-white/10 nodrag nowheel" // <-- evita drag
+              title="Editar título"
+              aria-label="Editar título"
+              onClick={(e) => {
+                e.stopPropagation();
+                setEditing(true);
+              }}
+            >
+              <Pencil size={14} className="text-white/70" />
+            </button>
           </div>
-          <div className="text-[10px] text-white/50">Arrastra aquí</div>
-        </div>
+        ) : (
+          <div
+            className="flex items-center gap-2"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <input
+              autoFocus
+              value={tempTitle}
+              onChange={(e) => setTempTitle(e.target.value)}
+              onKeyDown={(e) => {
+                e.stopPropagation();
+                if (e.key === "Enter") commitTitle(true);
+                if (e.key === "Escape") commitTitle(false);
+              }}
+              onBlur={() => commitTitle(true)}
+              className="w-[420px] max-w-[60vw] rounded-md border border-white/10 bg-[#101218] px-2 py-1 text-sm text-white outline-none focus:border-white/20 nodrag nowheel" // <-- evita drag
+              placeholder="Escribe un título…"
+            />
+            <button
+              className="rounded p-1 hover:bg-white/10 nodrag nowheel"
+              title="Guardar"
+              aria-label="Guardar"
+              onMouseDown={(e) => e.preventDefault()} // evita blur prematuro
+              onClick={() => commitTitle(true)}
+            >
+              <Check size={16} className="text-green-400" />
+            </button>
+            <button
+              className="rounded p-1 hover:bg-white/10 nodrag nowheel"
+              title="Cancelar"
+              aria-label="Cancelar"
+              onMouseDown={(e) => e.preventDefault()} // evita blur prematuro
+              onClick={() => commitTitle(false)}
+            >
+              <X size={16} className="text-white/70" />
+            </button>
+          </div>
+        )}
       </div>
+
+      {/* resto del componente sin cambios */}
     </div>
   );
 }
+
+export default ZoneNode;
