@@ -1,12 +1,5 @@
 export const zoneTemplates = [
   {
-    id: "internet",
-    name: "Internet",
-    color: "#ff6b6b",
-    description: "Red pública no confiable",
-    level: "low" as const,
-  },
-  {
     id: "dmz",
     name: "DMZ",
     color: "#ffa500",

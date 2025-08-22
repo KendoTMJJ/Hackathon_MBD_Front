@@ -42,8 +42,13 @@ import { useTemplates } from "../../hooks/useTemplate";
 import ShareModal from "../modals/ShareModal";
 import { useSheets } from "../../hooks/useSheets";
 import SheetTabs from "../modals/SheetTabs";
-import { zoneTemplates } from "../data/zones";
+
+import { cloudZones } from "../data/CloudZones";
+import { dmzZones } from "../data/DmzZones";
 import { zoneTypes } from "./zones";
+import { lanZones } from "../data/LanZones";
+import { datacenterZones } from "../data/DatacenterZones";
+import { otZones } from "../data/OtZones";
 
 const initialNodes: Node[] = [];
 const initialEdges: Edge[] = [];
@@ -55,7 +60,8 @@ const TOOLBAR_H = 65;
 
 const allNodeTypes = { ...nodeTypes, ...zoneTypes };
 
-type ZoneKind = (typeof zoneTemplates)[number]["id"];
+// Kinds que usaremos en zonas nuevas
+type ZoneKind = "cloud" | "dmz" | "lan" | "datacenter" | "ot";
 
 export default function FlowCanvas() {
   const nav = useNavigate();
@@ -410,6 +416,8 @@ export default function FlowCanvas() {
   // 7) Guardar / Crear (Documents) usando hooks
   const [isSaving, setIsSaving] = useState(false);
 
+  const { update: _ignoreUpdateTpl } = useTemplates(); // se usa arriba en efectos
+
   const createInitialSheet = useCallback(
     async (docId: string) => {
       try {
@@ -593,6 +601,167 @@ export default function FlowCanvas() {
     }
   }, [activeSheet, rf, displayNodes, hasInteracted]);
 
+  // ---------- Helpers para nuevas zonas (Cloud + DMZ) ----------
+  const clickCreateOffsetRef = useRef(0);
+
+  type ZoneTpl = {
+    id: string;
+    name: string;
+    description?: string;
+    color: string;
+    level: "low" | "medium" | "high";
+    kind: ZoneKind;
+  };
+
+  const getSubZoneTemplateById = useCallback(
+    (templateId: string): ZoneTpl | null => {
+      const c = cloudZones.find((z) => z.id === templateId);
+      if (c) return { ...c, kind: "cloud" };
+
+      const d = dmzZones.find((z) => z.id === templateId);
+      if (d) return { ...d, kind: "dmz" };
+
+      const l = lanZones.find((z) => z.id === templateId);
+      if (l) return { ...l, kind: "lan" };
+
+      const dc = datacenterZones.find((z) => z.id === templateId);
+      if (dc) return { ...dc, kind: "datacenter" };
+
+      const o = otZones.find((z) => z.id === templateId);
+      if (o) return { ...o, kind: "ot" };
+
+      return null;
+    },
+    []
+  );
+
+  // ❌ Reemplaza createZoneNodeFromTemplate por esta versión tipada y con onRename:
+  const createZoneNodeFromTemplate = useCallback(
+    (tpl: ZoneTpl | null, position: { x: number; y: number }): Node | null => {
+      if (!tpl) return null;
+      const width = 420;
+      const height = 160;
+
+      return {
+        id: `zone-${tpl.id}-${Date.now()}`,
+        type: "zone",
+        position,
+        data: {
+          id: tpl.id,
+          name: tpl.name,
+          description: tpl.description,
+          color: tpl.color,
+          level: tpl.level,
+          kind: tpl.kind,
+          title: "",
+          onRename: (nodeId: string, newTitle: string) => {
+            if (activeSheet) {
+              setSheetNodes((nds) => {
+                const next = nds.map((n) =>
+                  n.id === nodeId
+                    ? { ...n, data: { ...n.data, title: newTitle } }
+                    : n
+                );
+                persistSheet(next, sheetEdges);
+                return next;
+              });
+            } else if (documentId) {
+              const current = useDocumentStore.getState().doc;
+              const currentNodes = (current?.data?.nodes as Node[]) ?? [];
+              const nextNodes = currentNodes.map((n) =>
+                n.id === nodeId
+                  ? { ...n, data: { ...n.data, title: newTitle } }
+                  : n
+              );
+              const patch = { nodes: nextNodes };
+              applyLocalPatch(patch);
+              sendChange(patch);
+              debouncedSave();
+            } else {
+              setDraftNodes((nds) =>
+                nds.map((n) =>
+                  n.id === nodeId
+                    ? { ...n, data: { ...n.data, title: newTitle } }
+                    : n
+                )
+              );
+            }
+          },
+        },
+        style: { width, height },
+        zIndex: 0,
+      };
+    },
+    [
+      activeSheet,
+      sheetEdges,
+      documentId,
+      applyLocalPatch,
+      sendChange,
+      debouncedSave,
+      persistSheet,
+    ]
+  );
+
+  // 👇 Crear zona al hacer CLIC desde el panel (Cloud o DMZ)
+  const handleCreateZone = useCallback(
+    (templateId: string) => {
+      const tpl = getSubZoneTemplateById(templateId);
+      if (!tpl) return;
+
+      // Centro visual (aprox.) + offset incremental
+      const baseX = sidebarOpen
+        ? 320 + (window.innerWidth - 320) / 2
+        : window.innerWidth / 2;
+      const baseY = window.innerHeight / 2;
+
+      const base = rf
+        ? rf.screenToFlowPosition({ x: baseX, y: baseY })
+        : { x: 120, y: 80 };
+
+      const off = (clickCreateOffsetRef.current =
+        (clickCreateOffsetRef.current + 24) % 120);
+
+      const position = { x: base.x + off, y: base.y + off };
+
+      const newNode = createZoneNodeFromTemplate(tpl, position);
+      if (!newNode) return;
+
+      if (activeSheet) {
+        setSheetNodes((nds) => {
+          const next = [...nds, newNode];
+          persistSheet(next, sheetEdges);
+          return next;
+        });
+      } else if (documentId) {
+        const current = useDocumentStore.getState().doc;
+        const currentNodes = (current?.data?.nodes as Node[]) ?? [];
+        const nextNodes = [...currentNodes, newNode];
+        const patch = { nodes: nextNodes };
+        applyLocalPatch(patch);
+        sendChange(patch);
+        debouncedSave();
+      } else {
+        setDraftNodes((nds) => nds.concat(newNode));
+      }
+    },
+    [
+      rf,
+      sidebarOpen,
+      activeSheet,
+      sheetEdges,
+      documentId,
+      applyLocalPatch,
+      sendChange,
+      debouncedSave,
+      persistSheet,
+      setSheetNodes,
+      setDraftNodes,
+      getSubZoneTemplateById,
+      createZoneNodeFromTemplate,
+    ]
+  );
+
   const onDrop = useCallback(
     (event: React.DragEvent) => {
       event.preventDefault();
@@ -612,62 +781,9 @@ export default function FlowCanvas() {
         try {
           const payload = JSON.parse(raw);
           if (payload?.kind === "zone" && payload?.templateId) {
-            const tpl = zoneTemplates.find((z) => z.id === payload.templateId);
-            if (!tpl) return;
-
-            const kind: ZoneKind = payload.templateId;
-            const width = 420;
-            const height = 160;
-
-            newNode = {
-              id: `zone-${kind}-${Date.now()}`,
-              type: "zone",
-              position,
-              data: {
-                id: kind,
-                name: tpl.name,
-                description: tpl.description,
-                color: tpl.color,
-                level: tpl.level,
-                kind,
-                title: "",
-                onRename: (nodeId: string, newTitle: string) => {
-                  if (activeSheet) {
-                    setSheetNodes((nds) => {
-                      const next = nds.map((n) =>
-                        n.id === nodeId
-                          ? { ...n, data: { ...n.data, title: newTitle } }
-                          : n
-                      );
-                      persistSheet(next, sheetEdges);
-                      return next;
-                    });
-                  } else if (documentId) {
-                    const current = useDocumentStore.getState().doc;
-                    const currentNodes = (current?.data?.nodes as Node[]) ?? [];
-                    const nextNodes = currentNodes.map((n) =>
-                      n.id === nodeId
-                        ? { ...n, data: { ...n.data, title: newTitle } }
-                        : n
-                    );
-                    const patch = { nodes: nextNodes };
-                    applyLocalPatch(patch);
-                    sendChange(patch);
-                    debouncedSave();
-                  } else {
-                    setDraftNodes((nds) =>
-                      nds.map((n) =>
-                        n.id === nodeId
-                          ? { ...n, data: { ...n.data, title: newTitle } }
-                          : n
-                      )
-                    );
-                  }
-                },
-              },
-              style: { width, height },
-              zIndex: 0,
-            };
+            // ⬇️ Ahora resolvemos tanto Cloud como DMZ
+            const tpl = getSubZoneTemplateById(payload.templateId);
+            newNode = createZoneNodeFromTemplate(tpl, position);
           }
         } catch {
           /* no era JSON, cae abajo como tecnología */
@@ -742,6 +858,8 @@ export default function FlowCanvas() {
       sendChange,
       debouncedSave,
       persistSheet,
+      getSubZoneTemplateById,
+      createZoneNodeFromTemplate,
     ]
   );
 
@@ -791,6 +909,8 @@ export default function FlowCanvas() {
                   onNodeSelect={(nodeType) => {
                     console.log("Arrastrando nodo:", nodeType);
                   }}
+                  // crear al hacer clic (Cloud o DMZ)
+                  onCreateZone={handleCreateZone}
                 />
               </div>
             )}
