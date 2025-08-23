@@ -637,7 +637,6 @@ export default function FlowCanvas() {
     []
   );
 
-  // ❌ Reemplaza createZoneNodeFromTemplate por esta versión tipada y con onRename:
   const createZoneNodeFromTemplate = useCallback(
     (tpl: ZoneTpl | null, position: { x: number; y: number }): Node | null => {
       if (!tpl) return null;
