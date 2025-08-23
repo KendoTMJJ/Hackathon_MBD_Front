@@ -49,6 +49,8 @@ import { zoneTypes } from "./zones";
 import { lanZones } from "../data/LanZones";
 import { datacenterZones } from "../data/DatacenterZones";
 import { otZones } from "../data/OtZones";
+import RecommendedTechPanel from "./RecommendedTechPanel";
+import type { Technology } from "../../mocks/technologies.types";
 
 const initialNodes: Node[] = [];
 const initialEdges: Edge[] = [];
@@ -876,6 +878,70 @@ export default function FlowCanvas() {
     );
   }
 
+  // --- Selección de zona + inserción de tecnologías ---
+  const [selectedZone, setSelectedZone] = useState<{
+    zoneKind: ZoneKind;
+    subzoneId: string;
+  } | null>(null);
+
+  const handleAddTechnology = useCallback(
+    (t: Technology) => {
+      if (!selectedZone) return;
+
+      const allNodes = activeSheet
+        ? sheetNodes
+        : documentId
+        ? storeNodes
+        : draftNodes;
+      const parent = allNodes.find(
+        (n) =>
+          n.type === "zone" && (n.data as any)?.id === selectedZone.subzoneId
+      );
+      if (!parent) return;
+
+      const rel = { x: 40 + Math.random() * 120, y: 40 + Math.random() * 80 };
+      const techNode: Node = {
+        id: `tech-${Date.now()}`,
+        type: (t as any).nodeType ?? "default",
+        position: rel,
+        parentId: parent.id,
+        extent: "parent",
+        data: { label: t.name },
+        zIndex: 1,
+      };
+
+      if (activeSheet) {
+        setSheetNodes((nds) => {
+          const next = [...nds, techNode];
+          persistSheet(next, sheetEdges);
+          return next;
+        });
+      } else if (documentId) {
+        const current = useDocumentStore.getState().doc;
+        const currentNodes = (current?.data?.nodes as Node[]) ?? [];
+        const patch = { nodes: [...currentNodes, techNode] };
+        applyLocalPatch(patch);
+        sendChange(patch);
+        debouncedSave();
+      } else {
+        setDraftNodes((nds) => nds.concat(techNode));
+      }
+    },
+    [
+      selectedZone,
+      activeSheet,
+      sheetNodes,
+      sheetEdges,
+      documentId,
+      storeNodes,
+      draftNodes,
+      persistSheet,
+      applyLocalPatch,
+      sendChange,
+      debouncedSave,
+    ]
+  );
+
   return (
     <div className="w-screen h-[100dvh] overflow-hidden bg-[#0f1115]">
       <div className="flex h-full w-full flex-col">
@@ -909,8 +975,12 @@ export default function FlowCanvas() {
                   onNodeSelect={(nodeType) => {
                     console.log("Arrastrando nodo:", nodeType);
                   }}
-                  // crear al hacer clic (Cloud o DMZ)
                   onCreateZone={handleCreateZone}
+                />
+
+                <RecommendedTechPanel
+                  selected={selectedZone}
+                  onAddTechnology={handleAddTechnology}
                 />
               </div>
             )}
@@ -942,6 +1012,16 @@ export default function FlowCanvas() {
                 onDrop={onDrop}
                 onDragOver={onDragOver}
                 onViewportChange={handleViewportChange}
+                onNodeClick={(_, node) => {
+                  if (node.type === "zone") {
+                    setSelectedZone({
+                      zoneKind: (node.data as any).kind as ZoneKind,
+                      subzoneId: (node.data as any).id as string,
+                    });
+                  } else {
+                    setSelectedZone(null);
+                  }
+                }}
               >
                 <Background />
                 <Controls />
