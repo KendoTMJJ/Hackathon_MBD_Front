@@ -267,7 +267,8 @@ export const TechnologyPanel: React.FC<SidebarProps> = ({
                           draggable
                           onDragStart={(e) => onSubZoneDragStart(e, s.id)}
                           onClick={() => onCreateZone?.(s.id)}
-                          className="cursor-grab active:cursor-grabbing p-3 rounded-lg border border-white/10 bg-white/[0.03] hover:bg-white/[0.06] transition flex items-center gap-3"
+                          className="cursor-grab active:cursor-grabbing p-3 rounded-lg border border-white/10 hover:bg-white/[0.06] transition flex items-center gap-3"
+                          style={{ border: `1px solid ${s.color}`}}
                         >
                           <div
                             className="px-2 py-1 rounded-md"
