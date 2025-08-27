@@ -51,6 +51,7 @@ import { datacenterZones } from "../data/DatacenterZones";
 import { otZones } from "../data/OtZones";
 import RecommendedTechPanel from "./RecommendedTechPanel";
 import type { Technology } from "../../mocks/technologies.types";
+import type { ZoneKind } from "../data/zones";
 
 const initialNodes: Node[] = [];
 const initialEdges: Edge[] = [];
@@ -63,7 +64,7 @@ const TOOLBAR_H = 65;
 const allNodeTypes = { ...nodeTypes, ...zoneTypes };
 
 // Kinds que usaremos en zonas nuevas
-type ZoneKind = "cloud" | "dmz" | "lan" | "datacenter" | "ot";
+// type ZoneKind = "cloud" | "dmz" | "lan" | "datacenter" | "ot";
 
 export default function FlowCanvas() {
   const nav = useNavigate();
@@ -901,11 +902,11 @@ export default function FlowCanvas() {
       const rel = { x: 40 + Math.random() * 120, y: 40 + Math.random() * 80 };
       const techNode: Node = {
         id: `tech-${Date.now()}`,
-        type: (t as any).nodeType ?? "default",
+        type: "tech",
         position: rel,
         parentId: parent.id,
         extent: "parent",
-        data: { label: t.name },
+        data: { ...t, ZoneKind: selectedZone.zoneKind },
         zIndex: 1,
       };
 

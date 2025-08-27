@@ -1,6 +1,7 @@
 import type { Technology } from "./technologies.types";
 
 export const TECHNOLOGIES: Technology[] = [
+  // ---------- CLOUD ----------
   {
     id: "cloud-cspm",
     name: "CSPM",
@@ -52,6 +53,26 @@ export const TECHNOLOGIES: Technology[] = [
     tags: ["ddos"],
   },
   // ---------- DMZ ----------
+  {
+    id: "dmz-reverse-proxy",
+    name: "Control de URL",
+    description: "Balanceo L7 y terminación TLS en la DMZ.",
+    imageUrl: "/assets/tech/reverse-proxy.png",
+    provider: "F5 NGINX",
+    allowedZones: ["dmz"],
+    allowedSubzones: ["dmz-web-gateway"],
+    tags: ["proxy", "balanceo"],
+  },
+  // {
+  //   id: "dmz-reverse-proxy",
+  //   name: "Antimalware",
+  //   description: "Balanceo L7 y terminación TLS en la DMZ.",
+  //   imageUrl: "/assets/tech/reverse-proxy.png",
+  //   provider: "F5 NGINX",
+  //   allowedZones: ["dmz"],
+  //   allowedSubzones: ["dmz-web-gateway"],
+  //   tags: ["proxy", "balanceo"],
+  // },
   {
     id: "dmz-reverse-proxy",
     name: "Reverse Proxy",
