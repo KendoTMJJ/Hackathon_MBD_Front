@@ -5,6 +5,7 @@ import { Auth0Provider } from "@auth0/auth0-react";
 import "./index.css";
 import "./i18n";
 import App from "./App";
+import { WebSocketProvider } from "./context/WebSocketContext";
 
 const domain = import.meta.env.VITE_AUTH0_DOMAIN as string;
 const clientId = import.meta.env.VITE_AUTH0_CLIENT_ID as string;
@@ -23,7 +24,9 @@ createRoot(document.getElementById("root")!).render(
       cacheLocation="localstorage"
     >
       <BrowserRouter>
-        <App />
+        <WebSocketProvider>
+          <App />
+        </WebSocketProvider>
       </BrowserRouter>
     </Auth0Provider>
   </StrictMode>

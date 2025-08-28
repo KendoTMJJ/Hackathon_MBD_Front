@@ -943,6 +943,19 @@ export default function FlowCanvas() {
 
   return (
     <div className="w-screen h-[100dvh] overflow-hidden bg-[#0f1115]">
+      {/* CSS para ocultar scrollbar en todos los navegadores */}
+      <style>
+        {`
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+        }
+        .scrollbar-hide {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+      `}
+      </style>
+
       <div className="flex h-full w-full flex-col">
         {/* Toolbar (ahora contiene Guardar/Crear y Actualizar plantilla) */}
         <header
