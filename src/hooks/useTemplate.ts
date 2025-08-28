@@ -1,4 +1,3 @@
-// src/hooks/useTemplates.ts
 import type { TemplateEntity } from "../models";
 import { useApi } from "./useApi";
 
