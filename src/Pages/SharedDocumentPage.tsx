@@ -1,4 +1,5 @@
-import { useState, useCallback, useEffect } from "react";
+import type React from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   ReactFlow,
@@ -24,191 +25,801 @@ import "@xyflow/react/dist/style.css";
 import { TechnologyPanel } from "../components/flow/TechnologyPanel";
 import { nodeTypes } from "../components/flow/nodes";
 import { edgeTypes } from "../components/flow/edges";
-import type { SharedDocumentAccess, SheetEntity } from "../models";
+import { zoneTypes } from "../components/flow/zones";
+import { UserPresence, UserCursors } from "../components/shared/UserPresence";
+import RecommendedTechPanel from "../components/flow/RecommendedTechPanel";
+import { useSharedDocument } from "../hooks/useSharedDocument";
+import { useWebSocket } from "../context/WebSocketContext";
 
-const initialNodes: Node[] = [
-  {
-    id: "n1",
-    type: "cloud",
-    position: { x: 0, y: 0 },
-    data: { label: "Servidor en la nube" },
-  },
-  {
-    id: "n2",
-    type: "cloud",
-    position: { x: 0, y: 100 },
-    data: { label: "Base de Datos en Nube" },
-  },
-];
-const initialEdges: Edge[] = [{ id: "e-n1-n2", source: "n1", target: "n2" }];
+import { cloudZones } from "../components/data/CloudZones";
+import { dmzZones } from "../components/data/DmzZones";
+import { lanZones } from "../components/data/LanZones";
+import { datacenterZones } from "../components/data/DatacenterZones";
+import { otZones } from "../components/data/OtZones";
+import type { Technology } from "../mocks/technologies.types";
+
+const initialNodes: Node[] = [];
+const initialEdges: Edge[] = [];
 
 const fitViewOptions: FitViewOptions = { padding: 0.2 };
 const defaultEdgeOptions: DefaultEdgeOptions = { animated: true };
-const onNodeDrag: OnNodeDrag = () => {};
+
+const allNodeTypes = { ...nodeTypes, ...zoneTypes };
+
+type ZoneKind = "cloud" | "dmz" | "lan" | "datacenter" | "ot";
+
+type ZoneTpl = {
+  id: string;
+  name: string;
+  description?: string;
+  color: string;
+  level: "low" | "medium" | "high";
+  kind: ZoneKind;
+};
 
 export default function SharedDocumentPage() {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
+  const webSocket = useWebSocket();
 
-  const [sharedData, setSharedData] = useState<SharedDocumentAccess | null>(
-    null
-  );
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    sharedData,
+    sheets,
+    loading,
+    error,
+    saving,
+    loadSharedDocument,
+    saveSheetData,
+    createSheet,
+    deleteSheet,
+    canEdit,
+  } = useSharedDocument(token);
+
   const [passwordRequired, setPasswordRequired] = useState(false);
   const [password, setPassword] = useState("");
 
-  const [nodes, setNodes] = useState<Node[]>(initialNodes);
-  const [edges, setEdges] = useState<Edge[]>(initialEdges);
+  const [mainNodes, setMainNodes] = useState<Node[]>(initialNodes);
+  const [mainEdges, setMainEdges] = useState<Edge[]>(initialEdges);
   const [title, setTitle] = useState<string>("");
 
-  // sheets state
-  const [sheets, setSheets] = useState<SheetEntity[]>([]);
   const [activeSheetIdx, setActiveSheetIdx] = useState<number | null>(null);
+  const [sheetNodes, setSheetNodes] = useState<Node[]>([]);
+  const [sheetEdges, setSheetEdges] = useState<Edge[]>([]);
+  const [sheets_cache, setSheetsCache] = useState<
+    Record<string, { nodes: Node[]; edges: Edge[] }>
+  >({});
+  const [isChangingSheet, setIsChangingSheet] = useState(false);
 
-  // UI states
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [rf, setRf] = useState<ReactFlowInstance | null>(null);
+  const hasUserInteracted = useRef(false);
+  const lastInteractionTime = useRef(0);
+  const hasInitiallyLoaded = useRef(false);
+  const hasInitializedDocument = useRef(false);
 
-  const extractNodesEdges = (entity: any) => {
-    // entity may be: { data: { nodes, edges } } or { nodes, edges } or custom
-    const data = entity?.data ?? entity;
-    const extractedNodes = Array.isArray(data?.nodes)
-      ? data.nodes
-      : Array.isArray(entity?.nodes)
-      ? entity.nodes
-      : initialNodes;
-    const extractedEdges = Array.isArray(data?.edges)
-      ? data.edges
-      : Array.isArray(entity?.edges)
-      ? entity.edges
-      : initialEdges;
-    return { extractedNodes, extractedEdges };
-  };
+  const [selectedZone, setSelectedZone] = useState<{
+    zoneKind: ZoneKind;
+    subzoneId: string;
+  } | null>(null);
 
-  const loadFromEntity = (entity: any) => {
-    const { extractedNodes, extractedEdges } = extractNodesEdges(entity ?? {});
-    setNodes(extractedNodes);
-    setEdges(extractedEdges);
-    // titulo preferente: sheet.name || sheet.title || document.title
-    setTitle(
-      entity?.title ??
-        entity?.name ??
-        sharedData?.document?.title ??
-        "Documento Compartido"
-    );
-    // fit view un poco después
-    setTimeout(() => rf?.fitView(fitViewOptions), 200);
-  };
+  const clickCreateOffsetRef = useRef(0);
+  const sheetsCacheRef = useRef(sheets_cache);
+  const isSyncingRef = useRef(false);
 
-  const loadSharedDocument = async (pwd?: string) => {
-    if (!token) return;
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const backendUrl =
-        import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
-      const url = `${backendUrl}/shared/${token}${
-        pwd ? `?password=${encodeURIComponent(pwd)}` : ""
-      }`;
-
-      const response = await fetch(url, {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        if (
-          response.status === 400 &&
-          errorData.message?.includes("Password required")
-        ) {
-          setPasswordRequired(true);
-          return;
-        }
-        throw new Error(errorData.message || "Error accessing shared document");
-      }
-
-      const result = await response.json();
-      console.log("API Response:", result); // Para debugging
-
-      setSharedData(result);
-      setPasswordRequired(false);
-
-      // Manejar diferentes formatos de respuesta
-      const sheetsFromResult = Array.isArray(result.sheets)
-        ? result.sheets
-        : Array.isArray(result.document?.sheets)
-        ? result.document.sheets
-        : [];
-
-      setSheets(sheetsFromResult);
-
-      // Intentar cargar la primera hoja o el documento principal
-      if (sheetsFromResult.length > 0) {
-        setActiveSheetIdx(0);
-        loadFromEntity(sheetsFromResult[0]);
-      } else if (result.document) {
-        setActiveSheetIdx(null);
-        loadFromEntity(result.document);
-      }
-    } catch (err: any) {
-      setError(err.message || "Error accessing shared document");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const sheetNodesRef = useRef<Node[]>([]);
+  const sheetEdgesRef = useRef<Edge[]>([]);
 
   useEffect(() => {
-    loadSharedDocument();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
+    sheetNodesRef.current = sheetNodes;
+  }, [sheetNodes]);
 
-  const handleSelectSheet = (index: number) => {
-    const s = sheets[index];
-    if (!s) return;
-    setActiveSheetIdx(index);
-    loadFromEntity(s);
-  };
+  useEffect(() => {
+    sheetEdgesRef.current = sheetEdges;
+  }, [sheetEdges]);
 
-  const canEdit = sharedData?.permission === "edit";
+  useEffect(() => {
+    sheetsCacheRef.current = sheets_cache;
+  }, [sheets_cache]);
+
+  const handleViewportChange = useCallback(() => {
+    hasUserInteracted.current = true;
+    lastInteractionTime.current = Date.now();
+  }, []);
+
+  const extractNodesEdges = useCallback((entity: any) => {
+    if (!entity)
+      return { extractedNodes: initialNodes, extractedEdges: initialEdges };
+
+    const data = entity?.data ?? entity;
+
+    let extractedNodes = initialNodes;
+    let extractedEdges = initialEdges;
+
+    if (Array.isArray(data?.nodes)) {
+      extractedNodes = data.nodes;
+    } else if (Array.isArray(entity?.nodes)) {
+      extractedNodes = entity.nodes;
+    } else if (data?.content?.nodes) {
+      extractedNodes = data.content.nodes;
+    }
+
+    if (Array.isArray(data?.edges)) {
+      extractedEdges = data.edges;
+    } else if (Array.isArray(entity?.edges)) {
+      extractedEdges = entity.edges;
+    } else if (data?.content?.edges) {
+      extractedEdges = data.content.edges;
+    }
+
+    return { extractedNodes, extractedEdges };
+  }, []);
+
+  const loadFromEntity = useCallback(
+    (entity: any, skipAutoFit = false) => {
+      const { extractedNodes, extractedEdges } = extractNodesEdges(entity);
+
+      if (activeSheetIdx !== null) {
+        setSheetNodes(extractedNodes);
+        setSheetEdges(extractedEdges);
+      } else {
+        setMainNodes(extractedNodes);
+        setMainEdges(extractedEdges);
+      }
+
+      setTitle(
+        entity?.title ??
+          entity?.name ??
+          sharedData?.document?.title ??
+          "Documento Compartido"
+      );
+
+      if (!skipAutoFit && !hasInitiallyLoaded.current && rf) {
+        setTimeout(() => {
+          rf.fitView(fitViewOptions);
+          hasInitiallyLoaded.current = true;
+        }, 200);
+      }
+    },
+    [extractNodesEdges, rf, sharedData?.document?.title, activeSheetIdx]
+  );
+
+  const saveDataNow = useCallback(
+    (sheetId: string, nodes: Node[], edges: Edge[]) => {
+      if (!canEdit) return;
+
+      const data = { nodes, edges };
+
+      setSheetsCache((prev) => ({
+        ...prev,
+        [sheetId]: data,
+      }));
+
+      saveSheetData(sheetId, data).catch((err) => {
+        console.error("[saveDataNow] Error al guardar:", err);
+        setSheetsCache((prev) => {
+          const next = { ...prev };
+          delete next[sheetId];
+          return next;
+        });
+      });
+    },
+    [saveSheetData, canEdit]
+  );
+  const handleSelectSheet = useCallback(
+    (index: number) => {
+      if (index === activeSheetIdx || isChangingSheet) return;
+
+      const sheet = sheets[index];
+      if (!sheet) {
+        console.error("[v0] Sheet not found at index:", index);
+        return;
+      }
+
+      console.log("[v0] Selecting sheet:", sheet.name, "at index:", index);
+
+      setIsChangingSheet(true);
+
+      try {
+        if (activeSheetIdx !== null && sheets[activeSheetIdx]) {
+          const currentSheet = sheets[activeSheetIdx];
+          const currentNodes = activeSheetIdx !== null ? sheetNodes : mainNodes;
+          const currentEdges = activeSheetIdx !== null ? sheetEdges : mainEdges;
+
+          setSheetsCache((prev) => ({
+            ...prev,
+            [currentSheet.id]: { nodes: currentNodes, edges: currentEdges },
+          }));
+        }
+
+        setActiveSheetIdx(index);
+
+        const cached = sheetsCacheRef.current[sheet.id];
+        if (cached) {
+          setSheetNodes(cached.nodes);
+          setSheetEdges(cached.edges);
+        } else {
+          const { extractedNodes, extractedEdges } = extractNodesEdges(sheet);
+          setSheetNodes(extractedNodes);
+          setSheetEdges(extractedEdges);
+          setSheetsCache((prev) => ({
+            ...prev,
+            [sheet.id]: { nodes: extractedNodes, edges: extractedEdges },
+          }));
+        }
+
+        setTitle(sheet.name || `Hoja ${index + 1}`);
+      } catch (error) {
+        setSheetNodes([]);
+        setSheetEdges([]);
+      } finally {
+        setTimeout(() => {
+          setIsChangingSheet(false);
+        }, 100);
+      }
+    },
+    [
+      sheets,
+      activeSheetIdx,
+      isChangingSheet,
+      extractNodesEdges,
+      sheetNodes,
+      mainNodes,
+      sheetEdges,
+      mainEdges,
+    ]
+  );
+
+  const handleCreateSheet = useCallback(
+    async (name: string) => {
+      try {
+        const newSheet = await createSheet({
+          name,
+          data: { nodes: initialNodes, edges: initialEdges },
+        });
+
+        if (newSheet) {
+          setTimeout(() => {
+            const newIndex = sheets.findIndex((s) => s.id === newSheet.id);
+            if (newIndex !== -1) {
+              handleSelectSheet(newIndex);
+            }
+          }, 100);
+        }
+      } catch (error) {
+        console.error("Error creating sheet:", error);
+        throw error;
+      }
+    },
+    [createSheet, sheets, handleSelectSheet]
+  );
+
+  const handleDeleteSheet = useCallback(
+    async (sheetId: string) => {
+      const currentSheet = sheets[activeSheetIdx || 0];
+
+      await deleteSheet(sheetId);
+
+      setSheetsCache((prev) => {
+        const next = { ...prev };
+        delete next[sheetId];
+        return next;
+      });
+
+      if (currentSheet?.id === sheetId) {
+        const remainingSheets = sheets.filter((s) => s.id !== sheetId);
+        if (remainingSheets.length > 0) {
+          setTimeout(() => {
+            handleSelectSheet(0);
+          }, 100);
+        } else {
+          setActiveSheetIdx(null);
+          setSheetNodes([]);
+          setSheetEdges([]);
+          if (sharedData?.document) {
+            loadFromEntity(sharedData.document);
+          } else {
+            setMainNodes(initialNodes);
+            setMainEdges(initialEdges);
+            setTitle("Documento Compartido");
+          }
+        }
+      }
+    },
+    [
+      sheets,
+      activeSheetIdx,
+      deleteSheet,
+      handleSelectSheet,
+      sharedData?.document,
+      loadFromEntity,
+    ]
+  );
+
+  const displayNodes = useMemo(() => {
+    return activeSheetIdx !== null ? sheetNodes : mainNodes;
+  }, [activeSheetIdx, sheetNodes, mainNodes]);
+
+  const displayEdges = useMemo(() => {
+    return activeSheetIdx !== null ? sheetEdges : mainEdges;
+  }, [activeSheetIdx, sheetEdges, mainEdges]);
 
   const onNodesChange: OnNodesChange = useCallback(
     (changes) => {
-      if (!canEdit) return; // Bloquear cambios si no tiene permisos de edición
-      setNodes((nds) => applyNodeChanges(changes, nds));
+      if (!canEdit || isChangingSheet || isSyncingRef.current) return;
+
+      if (activeSheetIdx !== null) {
+        const currentSheet = sheets[activeSheetIdx];
+        if (!currentSheet) return;
+
+        setSheetNodes((nds) => {
+          const newNodes = applyNodeChanges(changes, nds);
+          if (hasUserInteracted.current && !isSyncingRef.current) {
+            saveDataNow(currentSheet.id, newNodes, sheetEdges);
+          }
+          return newNodes;
+        });
+      } else {
+        setMainNodes((nds) => applyNodeChanges(changes, nds));
+      }
     },
-    [canEdit]
+    [canEdit, isChangingSheet, activeSheetIdx, sheets, sheetEdges, saveDataNow]
   );
 
   const onEdgesChange: OnEdgesChange = useCallback(
     (changes) => {
-      if (!canEdit) return; // Bloquear cambios si no tiene permisos de edición
-      setEdges((eds) => applyEdgeChanges(changes, eds));
+      if (!canEdit || isChangingSheet || isSyncingRef.current) return;
+
+      if (activeSheetIdx !== null) {
+        const currentSheet = sheets[activeSheetIdx];
+        if (!currentSheet) return;
+
+        setSheetEdges((eds) => {
+          const newEdges = applyEdgeChanges(changes, eds);
+          if (hasUserInteracted.current && !isSyncingRef.current) {
+            saveDataNow(currentSheet.id, sheetNodes, newEdges);
+          }
+          return newEdges;
+        });
+      } else {
+        setMainEdges((eds) => applyEdgeChanges(changes, eds));
+      }
     },
-    [canEdit]
+    [canEdit, isChangingSheet, activeSheetIdx, sheets, sheetNodes, saveDataNow]
   );
 
   const onConnect: OnConnect = useCallback(
     (connection) => {
-      if (!canEdit) return; // Bloquear conexiones si no tiene permisos de edición
-      setEdges((eds) =>
-        addEdge({ ...connection, type: "secure", animated: true }, eds)
-      );
+      if (!canEdit || isChangingSheet || isSyncingRef.current) return;
+
+      if (activeSheetIdx !== null) {
+        const currentSheet = sheets[activeSheetIdx];
+        if (!currentSheet) return;
+
+        setSheetEdges((eds) => {
+          const newEdges = addEdge(
+            { ...connection, type: "secure", animated: true },
+            eds
+          );
+          saveDataNow(currentSheet.id, sheetNodes, newEdges);
+          return newEdges;
+        });
+      } else {
+        setMainEdges((eds) =>
+          addEdge({ ...connection, type: "secure", animated: true }, eds)
+        );
+      }
     },
-    [canEdit]
+    [canEdit, isChangingSheet, activeSheetIdx, sheets, sheetNodes, saveDataNow]
   );
 
-  useEffect(() => {
-    const t = setTimeout(() => rf?.fitView(fitViewOptions), 220);
-    return () => clearTimeout(t);
-  }, [sidebarOpen, rf]);
+  const onNodeDrag: OnNodeDrag = useCallback(
+    (_event, node) => {
+      if (canEdit) {
+        webSocket.updateCursor(node.position.x, node.position.y);
+      }
+    },
+    [canEdit, webSocket]
+  );
 
-  const handlePasswordSubmit = (e: React.FormEvent) => {
+  const getSubZoneTemplateById = useCallback(
+    (templateId: string): ZoneTpl | null => {
+      const c = cloudZones.find((z) => z.id === templateId);
+      if (c) return { ...c, kind: "cloud" };
+
+      const d = dmzZones.find((z) => z.id === templateId);
+      if (d) return { ...d, kind: "dmz" };
+
+      const l = lanZones.find((z) => z.id === templateId);
+      if (l) return { ...l, kind: "lan" };
+
+      const dc = datacenterZones.find((z) => z.id === templateId);
+      if (dc) return { ...dc, kind: "datacenter" };
+
+      const o = otZones.find((z) => z.id === templateId);
+      if (o) return { ...o, kind: "ot" };
+
+      return null;
+    },
+    []
+  );
+
+  const createZoneNodeFromTemplate = useCallback(
+    (tpl: ZoneTpl | null, position: { x: number; y: number }): Node | null => {
+      if (!tpl) return null;
+      const width = 420;
+      const height = 160;
+
+      return {
+        id: `zone-${tpl.id}-${Date.now()}`,
+        type: "zone",
+        position,
+        data: {
+          id: tpl.id,
+          name: tpl.name,
+          description: tpl.description,
+          color: tpl.color,
+          level: tpl.level,
+          kind: tpl.kind,
+          title: "",
+          onRename: (nodeId: string, newTitle: string) => {
+            if (activeSheetIdx !== null) {
+              const currentSheet = sheets[activeSheetIdx];
+              if (!currentSheet) return;
+
+              setSheetNodes((nds) => {
+                const next = nds.map((n) =>
+                  n.id === nodeId
+                    ? { ...n, data: { ...n.data, title: newTitle } }
+                    : n
+                );
+                saveDataNow(currentSheet.id, next, sheetEdges);
+                return next;
+              });
+            } else {
+              setMainNodes((nds) =>
+                nds.map((n) =>
+                  n.id === nodeId
+                    ? { ...n, data: { ...n.data, title: newTitle } }
+                    : n
+                )
+              );
+            }
+          },
+        },
+        style: { width, height },
+        zIndex: 0,
+      };
+    },
+    [activeSheetIdx, sheets, sheetEdges, saveDataNow]
+  );
+
+  const handleCreateZone = useCallback(
+    (templateId: string) => {
+      if (!canEdit) return;
+
+      const tpl = getSubZoneTemplateById(templateId);
+      if (!tpl) return;
+
+      const baseX = sidebarOpen
+        ? 320 + (window.innerWidth - 320) / 2
+        : window.innerWidth / 2;
+      const baseY = window.innerHeight / 2;
+
+      const base = rf
+        ? rf.screenToFlowPosition({ x: baseX, y: baseY })
+        : { x: 120, y: 80 };
+
+      const off = (clickCreateOffsetRef.current =
+        (clickCreateOffsetRef.current + 24) % 120);
+
+      const position = { x: base.x + off, y: base.y + off };
+      const newNode = createZoneNodeFromTemplate(tpl, position);
+      if (!newNode) return;
+
+      if (activeSheetIdx !== null) {
+        const currentSheet = sheets[activeSheetIdx];
+        if (!currentSheet) return;
+
+        setSheetNodes((nds) => {
+          const next = [...nds, newNode];
+          saveDataNow(currentSheet.id, next, sheetEdges);
+          return next;
+        });
+      } else {
+        setMainNodes((nds) => [...nds, newNode]);
+      }
+    },
+    [
+      canEdit,
+      getSubZoneTemplateById,
+      rf,
+      sidebarOpen,
+      createZoneNodeFromTemplate,
+      activeSheetIdx,
+      sheets,
+      sheetEdges,
+      saveDataNow,
+    ]
+  );
+
+  const handleAddTechnology = useCallback(
+    (t: Technology) => {
+      if (!canEdit || !selectedZone) return;
+
+      const allNodes = displayNodes;
+      const parent = allNodes.find(
+        (n) =>
+          n.type === "zone" && (n.data as any)?.id === selectedZone.subzoneId
+      );
+      if (!parent) return;
+
+      const rel = { x: 40 + Math.random() * 120, y: 40 + Math.random() * 80 };
+      const techNode: Node = {
+        id: `tech-${Date.now()}`,
+        type: (t as any).nodeType ?? "default",
+        position: rel,
+        parentId: parent.id,
+        extent: "parent",
+        data: { label: t.name },
+        zIndex: 1,
+      };
+
+      if (activeSheetIdx !== null) {
+        const currentSheet = sheets[activeSheetIdx];
+        if (!currentSheet) return;
+
+        setSheetNodes((nds) => {
+          const next = [...nds, techNode];
+          saveDataNow(currentSheet.id, next, sheetEdges);
+          return next;
+        });
+      } else {
+        setMainNodes((nds) => [...nds, techNode]);
+      }
+    },
+    [
+      canEdit,
+      selectedZone,
+      displayNodes,
+      activeSheetIdx,
+      sheets,
+      sheetEdges,
+      saveDataNow,
+    ]
+  );
+
+  const onDragOver = useCallback((event: React.DragEvent) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+  }, []);
+
+  const onDrop = useCallback(
+    (event: React.DragEvent) => {
+      event.preventDefault();
+      if (!rf || !canEdit) return;
+
+      const raw = event.dataTransfer.getData("application/reactflow");
+      const txt = event.dataTransfer.getData("text/plain");
+
+      const position = rf.screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      });
+
+      let newNode: Node | null = null;
+
+      if (raw) {
+        try {
+          const payload = JSON.parse(raw);
+          if (payload?.kind === "zone" && payload?.templateId) {
+            const tpl = getSubZoneTemplateById(payload.templateId);
+            newNode = createZoneNodeFromTemplate(tpl, position);
+          }
+        } catch {
+        }
+      }
+
+      if (!newNode) {
+        const nodeType = raw || txt || "default";
+        const zones = displayNodes.filter((n) => n.type === "zone");
+        const parent = zones.find((z) => pointInRect(position, z));
+
+        if (parent) {
+          const rel = {
+            x: position.x - parent.position.x,
+            y: position.y - parent.position.y,
+          };
+          newNode = {
+            id: `n-${Date.now()}`,
+            type: nodeType,
+            position: rel,
+            data: { label: nodeType },
+            parentId: parent.id,
+            extent: "parent",
+            zIndex: 1,
+          };
+        } else {
+          newNode = {
+            id: `n-${Date.now()}`,
+            type: nodeType,
+            position,
+            data: { label: nodeType },
+          };
+        }
+      }
+
+      if (!newNode) return;
+
+      if (activeSheetIdx !== null) {
+        const currentSheet = sheets[activeSheetIdx];
+        if (!currentSheet) return;
+
+        setSheetNodes((nds) => {
+          const next = [...nds, newNode!];
+          saveDataNow(currentSheet.id, next, sheetEdges);
+          return next;
+        });
+      } else {
+        setMainNodes((nds) => [...nds, newNode!]);
+      }
+    },
+    [
+      rf,
+      canEdit,
+      getSubZoneTemplateById,
+      createZoneNodeFromTemplate,
+      displayNodes,
+      activeSheetIdx,
+      sheets,
+      sheetEdges,
+      saveDataNow,
+    ]
+  );
+
+  function pointInRect(p: { x: number; y: number }, n: Node) {
+    const w = Number((n.style as any)?.width ?? 0);
+    const h = Number((n.style as any)?.height ?? 0);
+    return (
+      w > 0 &&
+      h > 0 &&
+      p.x >= n.position.x &&
+      p.y >= n.position.y &&
+      p.x <= n.position.x + w &&
+      p.y <= n.position.y + h
+    );
+  }
+
+  const miniMapNodeColor = useCallback((n: Node) => {
+    if (n.type === "zone") {
+      return (n.data as any)?.color ?? "#7c7c86";
+    }
+    return "#94a3b8";
+  }, []);
+
+  const miniMapStrokeColor = useCallback((n: Node) => {
+    return n.type === "zone" ? "#FFFFFF66" : "#00000033";
+  }, []);
+
+useEffect(() => {
+  const unsubscribe = webSocket.onDocumentChange((change) => {
+    if (change.userId === webSocket.currentUser?.id) return;
+
+    console.log("[v0] Received real-time change from other user:", change);
+
+    if (isSyncingRef.current) {
+      isSyncingRef.current = false;
+      return;
+    }
+
+    switch (change.type) {
+      case "sheet_update":
+        if (change.sheetId) {
+          isSyncingRef.current = true;
+          
+          const { nodes: newNodes, edges: newEdges } = change.data.data;
+
+          setSheetsCache((prev) => ({
+            ...prev,
+            [String(change.sheetId)]: { nodes: newNodes, edges: newEdges },
+          }));
+
+          if (
+            activeSheetIdx !== null &&
+            sheets[activeSheetIdx]?.id === change.sheetId
+          ) {
+            console.log("[v0] Updating active sheet with real-time changes");
+            setSheetNodes(newNodes);
+            setSheetEdges(newEdges);
+          }
+          
+          setTimeout(() => {
+            isSyncingRef.current = false;
+          }, 100);
+        }
+        break;
+    }
+  });
+
+  return unsubscribe;
+}, [webSocket, sheets, activeSheetIdx]);
+
+useEffect(() => {
+  const initializeDocument = async () => {
+    if (!token || hasInitializedDocument.current) return;
+
+    try {
+      const result = await loadSharedDocument();
+      hasInitializedDocument.current = true;
+
+      if (result?.document?.id) {
+        if (webSocket.isConnected) {
+          webSocket.joinDocument(result.document.id, token);
+        } else {
+          const interval = setInterval(() => {
+            if (webSocket.isConnected) {
+              webSocket.joinDocument(result.document.id, token);
+              clearInterval(interval);
+            }
+          }, 100);
+        }
+      }
+
+      if (result?.sheets && result.sheets.length > 0) {
+        setTimeout(() => {
+          handleSelectSheet(0);
+        }, 100);
+      } else if (result?.document) {
+        setActiveSheetIdx(null);
+        loadFromEntity(result.document, false);
+      }
+    } catch (err: any) {
+      if (err.message === "PASSWORD_REQUIRED") {
+        setPasswordRequired(true);
+      }
+    }
+  };
+
+  initializeDocument();
+}, [token, webSocket.isConnected]);
+
+  useEffect(() => {
+    if (
+      sheets.length > 0 &&
+      activeSheetIdx === null &&
+      !isChangingSheet &&
+      hasInitializedDocument.current
+    ) {
+      setTimeout(() => {
+        handleSelectSheet(0);
+      }, 50);
+    }
+  }, [sheets.length, activeSheetIdx, isChangingSheet, handleSelectSheet]);
+
+  useEffect(() => {
+    if (
+      webSocket.isConnected &&
+      sharedData?.document?.id &&
+      token &&
+      hasInitializedDocument.current
+    ) {
+      webSocket.joinDocument(sharedData.document.id, token);
+    }
+  }, [webSocket.isConnected, sharedData?.document?.id, token, webSocket]);
+
+  useEffect(() => {
+    return () => {
+      webSocket.leaveDocument();
+      isSyncingRef.current = false;
+    };
+  }, [webSocket]);
+
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    loadSharedDocument(password);
+    try {
+      await loadSharedDocument(password);
+      setPasswordRequired(false);
+    } catch (error) {
+    }
   };
 
   if (loading) {
@@ -219,7 +830,7 @@ export default function SharedDocumentPage() {
     );
   }
 
-  if (error) {
+  if (error && !passwordRequired) {
     return (
       <div className="flex h-screen items-center justify-center bg-[#0f1115]">
         <div className="rounded-lg bg-red-900/20 border border-red-500 p-6 text-center">
@@ -270,6 +881,21 @@ export default function SharedDocumentPage() {
 
   return (
   <div className="w-screen h-[100dvh] overflow-hidden bg-[#0f1115]">
+    {/* CSS para ocultar scrollbar en todos los navegadores */}
+    <style>
+      {`
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+        }
+        .scrollbar-hide {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+      `}
+    </style>
+
+    <UserPresence />
+
     <div className="flex h-full w-full flex-col">
       <div className="flex min-h-0 flex-1">
         {/* Sidebar */}
@@ -280,18 +906,33 @@ export default function SharedDocumentPage() {
         >
           {sidebarOpen && (
             <div className="h-full overflow-y-auto">
-              <TechnologyPanel />
+              <TechnologyPanel
+                onNodeSelect={(nodeType) => {
+                  console.log("Arrastrando nodo:", nodeType);
+                }}
+                onCreateZone={handleCreateZone}
+              />
+
+              <RecommendedTechPanel
+                selected={selectedZone}
+                onAddTechnology={handleAddTechnology}
+              />
             </div>
           )}
         </aside>
 
         {/* Canvas */}
         <div className="relative min-h-0 flex-1">
-          <div className="absolute inset-0 pb-16"> {/* Añadido padding inferior */}
+          <div className="absolute inset-0 pb-16">
             <ReactFlow
-              nodes={nodes}
-              edges={edges}
-              nodeTypes={nodeTypes}
+              key={
+                activeSheetIdx !== null
+                  ? `sheet-${sheets[activeSheetIdx]?.id}`
+                  : `main-${sharedData.document?.id}`
+              }
+              nodes={displayNodes}
+              edges={displayEdges}
+              nodeTypes={allNodeTypes}
               edgeTypes={edgeTypes}
               onNodesChange={onNodesChange}
               onEdgesChange={onEdgesChange}
@@ -301,18 +942,42 @@ export default function SharedDocumentPage() {
               fitViewOptions={fitViewOptions}
               defaultEdgeOptions={defaultEdgeOptions}
               onInit={setRf}
+              onDrop={onDrop}
+              onDragOver={onDragOver}
+              onViewportChange={handleViewportChange}
               nodesDraggable={canEdit}
               nodesConnectable={canEdit}
               elementsSelectable={canEdit}
+              onNodeClick={(_, node) => {
+                if (node.type === "zone") {
+                  setSelectedZone({
+                    zoneKind: (node.data as any).kind as ZoneKind,
+                    subzoneId: (node.data as any).id as string,
+                  });
+                } else {
+                  setSelectedZone(null);
+                }
+              }}
             >
               <Background />
               <Controls />
-              <MiniMap />
+              <MiniMap
+                nodeColor={miniMapNodeColor}
+                nodeStrokeColor={miniMapStrokeColor}
+                nodeStrokeWidth={2}
+                pannable
+                zoomable
+              />
+
+              {/* Cursores de otros usuarios */}
+              <UserCursors />
 
               <Panel position="top-left">
                 <div className="flex items-center gap-2 rounded-md border border-white/10 bg-[#0f1115]/90 p-2">
-                  <span className="px-2 py-1 text-white">{title}</span>
-                  <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-blue-600 px-2 py-1 text-xs text-white">
+                  <span className="px-2 py-1 text-white">
+                    {title}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-600 px-2 py-1 text-xs text-white">
                     <svg
                       className="h-3 w-3"
                       fill="currentColor"
@@ -320,10 +985,15 @@ export default function SharedDocumentPage() {
                     >
                       <path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z" />
                     </svg>
-                    {sharedData.permission === "edit"
-                      ? "Edición"
-                      : "Solo lectura"}
+                    {canEdit ? "Edición" : "Solo lectura"}
                   </span>
+
+                  {saving && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-yellow-600/20 border border-yellow-500/30 px-2 py-1 text-xs text-yellow-300">
+                      <div className="h-2 w-2 rounded-full bg-yellow-400 animate-pulse"></div>
+                      Guardando...
+                    </span>
+                  )}
                 </div>
               </Panel>
 
@@ -339,7 +1009,7 @@ export default function SharedDocumentPage() {
                   </button>
                   <button
                     onClick={() => navigate("/")}
-                    className="rounded-md border border-white/10 bg-green-600 px-3 py-2 text-xs text-white hover:bg-green-700"
+                    className="rounded-md border border-blue-500/20 bg-blue-600 px-3 py-2 text-xs text-white hover:bg-blue-700"
                   >
                     Crear tu propio diagrama
                   </button>
@@ -348,42 +1018,64 @@ export default function SharedDocumentPage() {
             </ReactFlow>
           </div>
 
-          {/* Tabs de hojas en la parte inferior izquierda */}
-          <div className="absolute left-4 bottom-4 z-30 flex items-center gap-2">
-            <div className="flex gap-2 rounded-md border border-white/10 bg-[#0f1115]/90 p-2">
-              {sheets.length > 0 ? (
-                sheets.map((s, idx) => (
-                  <button
-                    key={s.id}
-                    onClick={() => handleSelectSheet(idx)}
-                    className={`px-3 py-1 rounded text-sm ${
-                      activeSheetIdx === idx
-                        ? "bg-blue-600 text-white"
-                        : "bg-[#171727] text-gray-300 hover:bg-[#2a2a3a]"
-                    }`}
-                  >
-                    {s.name || `Hoja ${idx + 1}`}
-                  </button>
-                ))
-              ) : (
-                <div className="px-3 py-1 text-sm text-gray-300">
-                  No hay hojas disponibles
+          {/* Sheet Tabs - Mejorados */}
+          {sheets.length > 0 && (
+            <div className="absolute bottom-0 left-0 right-0 z-10">
+              <div className="flex items-center bg-[#0f1115] border-t border-white/10 px-4 py-2">
+                {/* Contenedor de pestañas con scroll horizontal */}
+                <div className="flex items-center space-x-1 overflow-x-auto scrollbar-hide flex-1 pr-4">
+                  {sheets.map((sheet, index) => (
+                    <button
+                      key={sheet.id}
+                      className={`relative min-w-[100px] px-3 py-2 text-sm font-medium rounded-t-lg border-t-2 transition-all duration-200 flex items-center gap-2 flex-shrink-0 ${
+                        activeSheetIdx === index
+                          ? "bg-blue-600 text-white border-blue-400 shadow-lg"
+                          : "bg-[#1a1a1a] text-gray-300 border-transparent hover:bg-[#2a2a2a] hover:text-white"
+                      }`}
+                      onClick={() => handleSelectSheet(index)}
+                    >
+                      <span className="truncate">
+                        {sheet.name || `Hoja ${index + 1}`}
+                      </span>
+                      
+                      {/* Botón X más grande con círculo rojo centrado */}
+                      {canEdit && sheets.length > 1 && (
+                        <span
+                          className="ml-1 flex items-center justify-center w-5 h-5 text-red-400 hover:text-white hover:bg-red-500 rounded-full transition-colors cursor-pointer font-bold flex-shrink-0"
+                          style={{ fontSize: '14px' }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const sheetName = sheet.name || `Hoja ${index + 1}`;
+                            if (window.confirm(`¿Eliminar "${sheetName}"?`)) {
+                              handleDeleteSheet(sheet.id);
+                            }
+                          }}
+                          title="Eliminar hoja"
+                        >
+                          ×
+                        </span>
+                      )}
+                      
+                      {activeSheetIdx === index && (
+                        <div className="absolute -bottom-0.5 left-0 right-0 h-0.5 bg-blue-400 rounded-full" />
+                      )}
+                    </button>
+                  ))}
                 </div>
-              )}
+
+                {/* Botón + para crear nueva hoja - Verde */}
+                {canEdit && (
+                  <button
+                    className="flex items-center justify-center w-8 h-8 bg-gray-700 hover:bg-gray-600 text-green-500 rounded-full transition-colors duration-200 flex-shrink-0 ml-2"
+                    onClick={() => handleCreateSheet(`Hoja ${sheets.length + 1}`)}
+                    title="Crear nueva hoja"
+                  >
+                    <span className="text-lg font-bold leading-none">+</span>
+                  </button>
+                )}
+              </div>
             </div>
-            
-            {/* Botón para crear nueva hoja (solo si tiene permisos de edición) */}
-            {canEdit && (
-              <button
-                className="rounded-md bg-green-600 p-2 text-white hover:bg-green-700 flex items-center justify-center"
-                title="Crear nueva hoja"
-              >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                </svg>
-              </button>
-            )}
-          </div>
+          )}
         </div>
       </div>
     </div>
