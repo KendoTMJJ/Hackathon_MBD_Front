@@ -1,7 +1,5 @@
-import CloudNode from "./CloudNode";
-// import FirewallNode from "./FirewallNode";
+import TechNode from "./TechNode";
 
 export const nodeTypes = {
-  cloud: CloudNode,
-  //   firewall: FirewallNode,
+  tech: TechNode,
 };
