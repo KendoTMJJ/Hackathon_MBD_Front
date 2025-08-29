@@ -5,11 +5,14 @@ import BoardPage from "./pages/BoardPage";
 import ProfilePage from "./pages/ProfilePage";
 import RequireAuth from "./components/auth/RequireAuth";
 import SharedDocument from "./pages/SharedDocumentPage";
+import "./theme.css";
+import ThemeToggle from "./components/home/ThemeToggle";
 
 export default function App() {
   return (
     <div className="w-screen h-[100dvh] overflow-hidden bg-[#0f1115]">
       <main className="h-full">
+        <ThemeToggle />
         <Routes>
           {/* Home público: lista proyectos y plantillas */}
           <Route path="/" element={<HomePage />} />

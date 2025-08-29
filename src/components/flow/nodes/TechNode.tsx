@@ -1,4 +1,4 @@
-import { Handle, Position } from "@xyflow/react";
+
 import type { Technology } from "../../../mocks/technologies.types";
 import type { ZoneKind } from "../../data/zones";
 
@@ -43,59 +43,14 @@ const THEME: Record<
 };
 
 export default function TechNode({ data }: Props) {
-  const kind = (data.zoneKind ?? "lan") as ZoneKind;
-  const theme = THEME[kind];
+  // const kind = (data.zoneKind ?? "lan") as ZoneKind;
+  // const theme = THEME[kind];
 
   return (
-    <div
-      className={`px-3 py-2 rounded-xl shadow-sm min-w-[220px] border-2 ${theme.bg} ${theme.border}`}
-    >
-      <div className="flex items-center gap-3">
-        {data.imageUrl ? (
-          <img
-            src={data.imageUrl}
-            alt={data.name}
-            className="w-8 h-8 rounded object-contain"
-          />
-        ) : (
-          <div className={`w-8 h-8 rounded bg-white/70 ${theme.border}`} />
-        )}
-        <div className="min-w-0">
-          <div className={`text-sm font-semibold truncate ${theme.text}`}>
-            {data.name}
-          </div>
-          {data.provider && (
-            <div className={`text-xs truncate ${theme.accent}`}>
-              {data.provider}
-            </div>
-          )}
-        </div>
+    <div className="px-4 py-2 shadow-md rounded-md bg-transparent">
+      <div className="flex items-center gap-2">
+        <img src={data.imageUrl} className="w-10 h-10 text-cyan-600" />
       </div>
-
-      {/* chips de tags */}
-      {!!data.tags?.length && (
-        <div className="mt-2 flex flex-wrap gap-1">
-          {data.tags.slice(0, 3).map((t) => (
-            <span
-              key={t}
-              className="text-[10px] px-2 py-[2px] rounded bg-white/60 text-black/70"
-            >
-              {t}
-            </span>
-          ))}
-        </div>
-      )}
-
-      {/* Entradas */}
-      <Handle type="target" position={Position.Top} id="t" />
-      <Handle type="target" position={Position.Left} id="l" />
-      <Handle type="target" position={Position.Right} id="r" />
-      <Handle type="target" position={Position.Bottom} id="b" />
-      {/* Salidas */}
-      <Handle type="source" position={Position.Top} id="st" />
-      <Handle type="source" position={Position.Left} id="sl" />
-      <Handle type="source" position={Position.Right} id="sr" />
-      <Handle type="source" position={Position.Bottom} id="sb" />
     </div>
   );
 }

@@ -6,6 +6,8 @@ import "./index.css";
 import "./i18n";
 import App from "./App";
 import { WebSocketProvider } from "./context/WebSocketContext";
+import "./index.css";
+import "./theme.css";
 
 const domain = import.meta.env.VITE_AUTH0_DOMAIN as string;
 const clientId = import.meta.env.VITE_AUTH0_CLIENT_ID as string;
