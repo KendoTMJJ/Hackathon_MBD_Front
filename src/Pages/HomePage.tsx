@@ -184,6 +184,11 @@ export default function HomePage() {
     navigate(`/Board?${q.toString()}`); // draft
   }
 
+  // 🔹 Handler para eliminación optimista en la vista de documentos
+  const handleCardDeleted = (id: string) => {
+    setDocuments((prev) => prev.filter((d) => d.id !== id));
+  };
+
   // Estilos
   const btn =
     "px-3 py-2 rounded-[10px] border border-[#313138] bg-[#1b1b1f] text-white hover:border-[#3a3a41]";
@@ -300,6 +305,8 @@ export default function HomePage() {
                         onOpen={(d: DocumentEntity) =>
                           navigate(`/Board/${d.id}`)
                         }
+                        // ← ACTUALIZA INSTANTÁNEO
+                        onDeleted={handleCardDeleted}
                       />
                     ))}
                   </section>

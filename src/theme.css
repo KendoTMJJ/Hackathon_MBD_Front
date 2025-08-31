@@ -6,8 +6,11 @@
 }
 
 /* Transición suave */
-html, body, #root {
-  transition: background-color var(--transition), color var(--transition), filter var(--transition);
+html,
+body,
+#root {
+  transition: background-color var(--transition), color var(--transition),
+    filter var(--transition);
 }
 
 /* En modo claro: invertimos todo el #root */
@@ -25,4 +28,5 @@ html, body, #root {
 }
 
 /* Utilidad: pon "no-invert" en lo que no quieras alterar en claro */
-.no-invert {}
+.no-invert {
+}

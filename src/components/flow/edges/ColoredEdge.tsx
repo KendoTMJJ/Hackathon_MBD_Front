@@ -1,33 +1,30 @@
-"use client"
-
-import { BaseEdge, EdgeLabelRenderer, getBezierPath, type EdgeProps } from "@xyflow/react"
+import {
+  BaseEdge,
+  EdgeLabelRenderer,
+  getSmoothStepPath,
+  type EdgeProps,
+} from "@xyflow/react";
 
 // Tipos de líneas de colores para diferentes propósitos
 export const EDGE_COLORS = {
   // Seguridad
   security: "#10b981", // Verde - Tráfico seguro
-  threat: "#ef4444", // Rojo - Amenazas/ataques
-  data: "#3b82f6", // Azul - Flujo de datos
-  management: "#f59e0b", // Naranja - Gestión/administración
-  backup: "#8b5cf6", // Púrpura - Respaldos
-  monitoring: "#06b6d4", // Cian - Monitoreo
   // Zonas de red
-  dmz: "#f59e0b", // Naranja - DMZ
-  lan: "#3b82f6", // Azul - LAN
-  wan: "#ef4444", // Rojo - WAN/Internet
-  datacenter: "#8b5cf6", // Púrpura - Data Center
-  cloud: "#10b981", // Verde - Cloud
-  ot: "#f97316", // Naranja oscuro - OT/Industrial
-} as const
+  dmz: "#F59E0B", // Naranja - DMZ
+  lan: "#22F0F0", // Azul - LAN
+  datacenter: "#E300A4", // Púrpura - Data Center
+  cloud: "#707070", // Verde - Cloud
+  ot: "#992E08", // Naranja oscuro - OT/Industrial
+} as const;
 
-export type EdgeColor = keyof typeof EDGE_COLORS
+export type EdgeColor = keyof typeof EDGE_COLORS;
 
 export interface ColoredEdgeData {
-  color?: EdgeColor
-  label?: string
-  animated?: boolean
-  dashed?: boolean
-  thickness?: "thin" | "normal" | "thick"
+  color?: EdgeColor;
+  label?: string;
+  animated?: boolean;
+  dashed?: boolean;
+  thickness?: "thin" | "normal" | "thick";
 }
 
 export function ColoredEdge({
@@ -40,19 +37,22 @@ export function ColoredEdge({
   data = {},
   markerEnd,
 }: EdgeProps & { data?: ColoredEdgeData }) {
-  const color = data?.color ? EDGE_COLORS[data.color] : "#6b7280"
-  const thickness = data?.thickness === "thick" ? 4 : data?.thickness === "thin" ? 1 : 2
-  const animated = data?.animated ?? false
-  const dashed = data?.dashed ?? false
+  const color = data?.color ? EDGE_COLORS[data.color] : "#6b7280";
+  const thickness =
+    data?.thickness === "thick" ? 4 : data?.thickness === "thin" ? 1 : 2;
+  const animated = data?.animated ?? false;
+  const dashed = data?.dashed ?? false;
 
-  const [edgePath, labelX, labelY] = getBezierPath({
+  // ➜ camino ortogonal
+  const [edgePath, labelX, labelY] = getSmoothStepPath({
     sourceX,
     sourceY,
     sourcePosition,
     targetX,
     targetY,
     targetPosition,
-  })
+    borderRadius: 8, // pon 0 si quieres esquinas rectas
+  });
 
   return (
     <>
@@ -90,5 +90,5 @@ export function ColoredEdge({
         }
       `}</style>
     </>
-  )
+  );
 }
