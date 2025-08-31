@@ -16,7 +16,6 @@ import {
   Background,
   MiniMap,
   Controls,
-  Panel,
   type ReactFlowInstance,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
@@ -52,22 +51,29 @@ import { otZones } from "../data/OtZones";
 import RecommendedTechPanel from "./RecommendedTechPanel";
 import type { Technology } from "../../mocks/technologies.types";
 import type { ZoneKind } from "../data/zones";
+import type { TechLike } from "../TechnicalSheet/TechDetailsPanel";
+import TechDetailsPanel from "../TechnicalSheet/TechDetailsPanel";
+import SubZoneModal from "../modals/SubZoneModal";
+import EdgeStylePopover, { type EdgePreset } from "./edges/EdgeStylePopover";
+import TitlePanel from "./TitlePanel";
+import CanvasActionsPanel from "./CanvasActionsPanel";
 
 const initialNodes: Node[] = [];
 const initialEdges: Edge[] = [];
 
 const fitViewOptions: FitViewOptions = { padding: 0.2 };
-const defaultEdgeOptions: DefaultEdgeOptions = { animated: true };
+const defaultEdgeOptions: DefaultEdgeOptions = {
+  type: "colorEdge",
+  animated: false,
+};
 const onNodeDrag: OnNodeDrag = () => {};
-const TOOLBAR_H = 65;
+const TOOLBAR_H = 60;
 
 const allNodeTypes = { ...nodeTypes, ...zoneTypes };
 
-// Kinds que usaremos en zonas nuevas
-// type ZoneKind = "cloud" | "dmz" | "lan" | "datacenter" | "ot";
-
 export default function FlowCanvas() {
   const nav = useNavigate();
+  const [selectedTech, setSelectedTech] = useState<TechLike | null>(null);
 
   const miniMapNodeColor = useCallback((n: Node) => {
     if (n.type === "zone") {
@@ -128,6 +134,13 @@ export default function FlowCanvas() {
   const [sheetNodes, setSheetNodes] = useState<Node[]>([]);
   const [sheetEdges, setSheetEdges] = useState<Edge[]>([]);
 
+  const [edgePreset, setEdgePreset] = useState<EdgePreset>({
+    color: "security",
+    thickness: "normal",
+    dashed: false,
+    animated: false,
+  });
+
   const [sheets, setSheets] = useState<
     Record<string, { nodes: Node[]; edges: Edge[] }>
   >({});
@@ -138,8 +151,10 @@ export default function FlowCanvas() {
   }, [sheets]);
 
   const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [infoModalOpen, setInfoModalOpen] = useState(false);
+
   // Sheets
-  const { update, create: createSheet } = useSheets(); // Agregado create para crear hojas
+  const { update, create: createSheet } = useSheets();
   const [activeSheet, setActiveSheet] = useState<any>(null);
   const [isChangingSheet, setIsChangingSheet] = useState(false);
   const [hasInteracted, setHasInteracted] = useState(false);
@@ -346,43 +361,40 @@ export default function FlowCanvas() {
 
   const onConnect: OnConnect = useCallback(
     (connection) => {
-      if (isChangingSheet) return;
+      const payload = {
+        ...connection,
+        type: "colorEdge",
+        animated: edgePreset.animated,
+        data: edgePreset,
+      };
 
       if (activeSheet) {
         setSheetEdges((eds) => {
-          const next = addEdge(
-            { ...connection, type: "secure", animated: true },
-            eds
-          );
+          const next = addEdge(payload, eds);
           persistSheet(sheetNodes, next);
           return next;
         });
       } else if (documentId) {
         const current = useDocumentStore.getState().doc;
         const currentEdges = (current?.data?.edges as Edge[]) ?? [];
-        const nextEdges = addEdge(
-          { ...connection, type: "secure", animated: true },
-          currentEdges
-        );
+        const nextEdges = addEdge(payload, currentEdges);
         const patch = { edges: nextEdges };
         applyLocalPatch(patch);
         sendChange(patch);
         debouncedSave();
       } else {
-        setDraftEdges((eds) =>
-          addEdge({ ...connection, type: "secure", animated: true }, eds)
-        );
+        setDraftEdges((eds) => addEdge(payload, eds));
       }
     },
     [
+      activeSheet,
       documentId,
+      sheetNodes,
+      persistSheet,
       applyLocalPatch,
       sendChange,
       debouncedSave,
-      activeSheet,
-      sheetNodes,
-      persistSheet,
-      isChangingSheet,
+      edgePreset,
     ]
   );
 
@@ -705,7 +717,7 @@ export default function FlowCanvas() {
     ]
   );
 
-  // 👇 Crear zona al hacer CLIC desde el panel (Cloud o DMZ)
+  // 👇 Crear zona al hacer CLIC desde el panel
   const handleCreateZone = useCallback(
     (templateId: string) => {
       const tpl = getSubZoneTemplateById(templateId);
@@ -783,7 +795,7 @@ export default function FlowCanvas() {
         try {
           const payload = JSON.parse(raw);
           if (payload?.kind === "zone" && payload?.templateId) {
-            // ⬇️ Ahora resolvemos tanto Cloud como DMZ
+            // ⬇️ Resolvemos Cloud/DMZ/LAN/DC/OT
             const tpl = getSubZoneTemplateById(payload.templateId);
             newNode = createZoneNodeFromTemplate(tpl, position);
           }
@@ -942,9 +954,13 @@ export default function FlowCanvas() {
     ]
   );
 
+  const [isEdgeStyleBarVisible, setIsEdgeStyleBarVisible] = useState(false);
+  const [isCanvasActionsPanelVisible, setIsCanvasActionsPanelVisible] =
+    useState(false);
+
   return (
     <div className="w-screen h-[100dvh] overflow-hidden bg-[#0f1115]">
-      {/* CSS para ocultar scrollbar en todos los navegadores */}
+      {/* CSS adicional para forzar z-index */}
       <style>
         {`
         .scrollbar-hide::-webkit-scrollbar {
@@ -954,13 +970,23 @@ export default function FlowCanvas() {
           -ms-overflow-style: none;
           scrollbar-width: none;
         }
+        /* React Flow siempre debajo del toolbar (z bajo) */
+        .react-flow__container,
+        .react-flow__renderer,
+        .react-flow__pane {
+          z-index: 0 !important;
+        }
+        /* Utilidad para tooltips si necesitas usarla dentro del canvas */
+        .tooltip-high-z {
+          z-index: 9999 !important;
+        }
       `}
       </style>
 
       <div className="flex h-full w-full flex-col">
-        {/* Toolbar (ahora contiene Guardar/Crear y Actualizar plantilla) */}
+        {/* Toolbar: capa alta para que sus hovers/overlays estén encima */}
         <header
-          className="border-b border-white/10 bg-[#0f1115]/95 backdrop-blur overflow-hidden transition-[height] duration-200"
+          className="border-b border-white/10 bg-[#0f1115]/95 backdrop-blur overflow-hidden transition-[height] duration-200 relative z-[100]"
           style={{ height: toolbarOpen ? TOOLBAR_H : 0 }}
         >
           {toolbarOpen && (
@@ -971,35 +997,37 @@ export default function FlowCanvas() {
               onUpdateTemplate={handleUpdateTemplate}
               updatingTemplate={isUpdatingTpl}
               isDraft={!documentId}
+              isEdgeStyleBarVisible={isEdgeStyleBarVisible}
+              onToggleEdgeStyleBar={() => setIsEdgeStyleBarVisible((v) => !v)}
+              isCanvasActionsPanelVisible={isCanvasActionsPanelVisible}
+              onToggleCanvasActionsPanel={() =>
+                setIsCanvasActionsPanelVisible((v) => !v)
+              }
             />
           )}
         </header>
 
         <div className="flex min-h-0 flex-1">
-          {/* Sidebar */}
+          {/* Sidebar - Ahora con altura completa y scroll interno */}
           <aside
             className={`shrink-0 border-r border-white/10 bg-[#0f1115]/95 backdrop-blur transition-[width] duration-200 overflow-hidden ${
               sidebarOpen ? "w-80" : "w-0"
             }`}
           >
-            {sidebarOpen && (
-              <div className="h-full overflow-y-auto">
+            <div className="h-full flex flex-col">
+              {/* TechnologyPanel con altura ajustada */}
+              <div className="overflow-hidden">
                 <TechnologyPanel
                   onNodeSelect={(nodeType) => {
                     console.log("Arrastrando nodo:", nodeType);
                   }}
                   onCreateZone={handleCreateZone}
                 />
-
-                <RecommendedTechPanel
-                  selected={selectedZone}
-                  onAddTechnology={handleAddTechnology}
-                />
               </div>
-            )}
+            </div>
           </aside>
 
-          {/* Canvas */}
+          {/* Canvas: z bajo y SIN isolation para no encerrar overlays */}
           <div className="relative min-h-0 flex-1">
             <div className="absolute inset-0 pb-10">
               <ReactFlow
@@ -1031,10 +1059,16 @@ export default function FlowCanvas() {
                       zoneKind: (node.data as any).kind as ZoneKind,
                       subzoneId: (node.data as any).id as string,
                     });
+                    setSelectedTech(null);
+                  } else if (node.type === "tech") {
+                    setSelectedZone(null);
+                    setSelectedTech(node.data as any);
                   } else {
                     setSelectedZone(null);
+                    setSelectedTech(null);
                   }
                 }}
+                className="react-flow-container"
               >
                 <Background />
                 <Controls />
@@ -1046,55 +1080,36 @@ export default function FlowCanvas() {
                   zoomable
                 />
 
-                {/* Título */}
-                <Panel position="top-left">
-                  <div className="flex items-center gap-2 rounded-md border border-white/10 bg-[#0f1115]/90 p-2">
-                    <input
-                      value={title}
-                      onChange={(e) => handleTitleInput(e.target.value)}
-                      placeholder="Sin título"
-                      className="w-64 rounded-md bg-transparent px-2 py-1 text-white outline-none placeholder:text-white/40"
-                    />
-                    {!documentId && (
-                      <span
-                        className="ml-1 inline-block h-2 w-2 rounded-full bg-yellow-400"
-                        title="Borrador: aún no guardado"
-                      />
-                    )}
-                  </div>
-                </Panel>
+                <TitlePanel
+                  title={title}
+                  onChangeTitle={handleTitleInput}
+                  isDraft={!documentId}
+                />
 
                 {/* Acciones de UI locales (solo toggles) */}
-                <Panel position="top-right">
-                  <div className="flex gap-2 rounded-md border border-white/10 bg-[#0f1115]/90 p-2">
-                    <button
-                      onClick={() => setSidebarOpen((v) => !v)}
-                      className="rounded-md border border-white/10 bg-[#171727] px-3 py-2 text-xs text-white hover:brightness-110"
-                    >
-                      {sidebarOpen
-                        ? "Ocultar tecnologías"
-                        : "Mostrar tecnologías"}
-                    </button>
-                    <button
-                      onClick={() => setToolbarOpen((v) => !v)}
-                      className="rounded-md border border-white/10 bg-[#171727] px-3 py-2 text-xs text-white hover:brightness-110"
-                    >
-                      {toolbarOpen ? "Ocultar toolbar" : "Mostrar toolbar"}
-                    </button>
-                    <button
-                      onClick={() => setShareModalOpen(true)}
-                      className="rounded-md border border-white/10 bg-blue-600 px-3 py-2 text-xs text-white hover:bg-blue-700"
-                    >
-                      Compartir
-                    </button>
-                  </div>
-                </Panel>
+                <CanvasActionsPanel
+                  open={isCanvasActionsPanelVisible}
+                  onClose={() => setIsCanvasActionsPanelVisible(false)}
+                  sidebarOpen={sidebarOpen}
+                  toolbarOpen={toolbarOpen}
+                  onToggleSidebar={() => setSidebarOpen((v) => !v)}
+                  onToggleToolbar={() => setToolbarOpen((v) => !v)}
+                  onOpenShare={() => setShareModalOpen(true)}
+                  onOpenInfo={() => setInfoModalOpen(true)}
+                />
               </ReactFlow>
+
+              <TechDetailsPanel
+                tech={selectedTech}
+                onClose={() => setSelectedTech(null)}
+              />
+
               <ShareModal
                 isOpen={shareModalOpen}
                 onClose={() => setShareModalOpen(false)}
                 documentId={documentId || ""}
               />
+
               {/* Tabs de hojas */}
               {documentId && (
                 <SheetTabs
@@ -1103,6 +1118,24 @@ export default function FlowCanvas() {
                   onSheetChange={(sheet) => setActiveSheet(sheet)}
                 />
               )}
+
+              <SubZoneModal
+                isOpen={infoModalOpen}
+                onClose={() => setInfoModalOpen(false)}
+                title="Información de las zonas"
+              />
+
+              <EdgeStylePopover
+                open={isEdgeStyleBarVisible}
+                value={edgePreset}
+                onChange={setEdgePreset}
+                onClose={() => setIsEdgeStyleBarVisible(false)}
+              />
+
+              <RecommendedTechPanel
+                selected={selectedZone}
+                onAddTechnology={handleAddTechnology}
+              />
             </div>
           </div>
         </div>

@@ -1,7 +1,5 @@
-import DashedEdge from "./DashedEdge";
-import SecureEdge from "./SecureEdge";
+import { ColoredEdge } from "./ColoredEdge";
 
 export const edgeTypes = {
-  dashed: DashedEdge,
-  secure: SecureEdge,
+  colorEdge: ColoredEdge,
 };
