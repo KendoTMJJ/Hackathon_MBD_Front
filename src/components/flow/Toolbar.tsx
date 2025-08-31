@@ -1,24 +1,6 @@
 import { Save, FilePlus, RefreshCw, Settings } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import type { EdgePreset } from "./edges/EdgeStylePopover";
-
-type Props = {
-  onBack?: () => void;
-  onSave: () => void;
-  saving?: boolean;
-
-  canUpdateTemplate?: boolean;
-  onUpdateTemplate?: () => void;
-  updatingTemplate?: boolean;
-
-  isDraft?: boolean;
-
-  isEdgeStyleBarVisible?: boolean;
-  onToggleEdgeStyleBar?: () => void;
-
-  edgeStyle?: EdgePreset;
-  onEdgeStyleChange?: (style: EdgePreset) => void;
-};
+import type ViewProps from "./props/props";
 
 export default function Toolbar({
   onBack,
@@ -28,9 +10,13 @@ export default function Toolbar({
   onUpdateTemplate,
   updatingTemplate,
   isDraft,
+
   isEdgeStyleBarVisible,
   onToggleEdgeStyleBar,
-}: Props) {
+
+  isCanvasActionsPanelVisible,
+  onToggleCanvasActionsPanel,
+}: ViewProps) {
   const nav = useNavigate();
 
   const btnBase =
@@ -85,6 +71,19 @@ export default function Toolbar({
         >
           <Settings size={18} />
           <span className="text-sm hidden sm:inline">Conexiones</span>
+        </button>
+
+        <button
+          onClick={onToggleCanvasActionsPanel}
+          className={`${btnBase} ${
+            isCanvasActionsPanelVisible
+              ? "border-blue-500/50 bg-blue-500/20 ring-2 ring-blue-500/30"
+              : "border-[#313138] bg-[#2a2a2f] hover:border-[#3a3a41] hover:bg-[#323238]"
+          }`}
+          title="Configurar estilos de conexión"
+        >
+          <Settings size={18} />
+          <span className="text-sm hidden sm:inline">Vista</span>
         </button>
 
         {/* Separador */}

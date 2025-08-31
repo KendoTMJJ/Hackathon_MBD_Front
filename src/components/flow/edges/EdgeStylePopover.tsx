@@ -1,12 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import {
-  X,
-  GripVertical,
-  Zap,
-  HelpCircle,
-  Activity,
-  Slash,
-} from "lucide-react";
+import { useState } from "react";
+import { X, Zap, HelpCircle, Activity, Slash } from "lucide-react";
 import {
   EDGE_COLORS,
   type ColoredEdgeData,
@@ -49,33 +42,17 @@ function EdgeStyleBar({ value, onChange, className = "" }: StyleBarProps) {
   } as const;
 
   const getThicknessDisplay = (size: number) => (
-    <div className="flex items-center justify-center w-full">
+    <div className="flex w-full items-center justify-center">
       <div
-        className="rounded-full bg-white"
+        className="bg-white rounded-full"
         style={{ height: size, width: "70%" }}
       />
     </div>
   );
 
-  const VARIANT = {
-    blue: {
-      activeBtn: "bg-blue-500/20 border-blue-400/30",
-      activeIcon: "text-blue-300",
-      dot: "bg-blue-400",
-    },
-    purple: {
-      activeBtn: "bg-purple-500/20 border-purple-400/30",
-      activeIcon: "text-purple-300",
-      dot: "bg-purple-400",
-    },
-    idleBtn: "bg-white/5 border-white/15 hover:bg-white/10",
-    idleIcon: "text-white/60",
-    idleDot: "bg-white/30",
-  } as const;
-
   return (
     <div className={`flex flex-col gap-4 ${className}`}>
-      {/* Header */}
+      {/* Header informativo con tip (toggle) */}
       <div className="flex items-start justify-between">
         <div className="flex flex-col">
           <div className="flex items-center gap-2">
@@ -94,7 +71,7 @@ function EdgeStyleBar({ value, onChange, className = "" }: StyleBarProps) {
             onMouseEnter={() => setActiveTooltip("help")}
             onMouseLeave={() => setActiveTooltip(null)}
             onClick={() =>
-              setActiveTooltip(activeTooltip === "help" ? null : "help")
+              setActiveTooltip((s) => (s === "help" ? null : "help"))
             }
             aria-label="Ayuda"
           >
@@ -137,7 +114,7 @@ function EdgeStyleBar({ value, onChange, className = "" }: StyleBarProps) {
                 className={`flex h-8 w-full items-center justify-center rounded-lg border-2 transition-all duration-200 ${
                   value.color === key
                     ? "scale-105 ring-2 ring-white/80 shadow-lg"
-                    : "scale-100 hover:scale-105"
+                    : "hover:scale-105"
                 }`}
                 style={{
                   background: EDGE_COLORS[key],
@@ -183,7 +160,7 @@ function EdgeStyleBar({ value, onChange, className = "" }: StyleBarProps) {
               className={`flex flex-col items-center gap-2 rounded-lg border p-2 transition-all ${
                 value.thickness === t
                   ? "border-white/25 bg-white/15 shadow-inner"
-                  : "border-white/15 bg-transparent hover:bg-white/5"
+                  : "border-white/15 hover:bg-white/5"
               }`}
             >
               {getThicknessDisplay(thicknessConfig[t].value)}
@@ -195,7 +172,7 @@ function EdgeStyleBar({ value, onChange, className = "" }: StyleBarProps) {
         </div>
       </div>
 
-      {/* Estilos adicionales */}
+      {/* Estilos */}
       <div className="space-y-2">
         <span className="text-sm font-medium text-white/90">Estilos</span>
         <div className="grid grid-cols-2 gap-2">
@@ -223,18 +200,30 @@ function EdgeStyleBar({ value, onChange, className = "" }: StyleBarProps) {
               onMouseLeave={() => setActiveTooltip(null)}
               aria-pressed={active}
               className={`flex items-center justify-center gap-2 rounded-lg border p-2 transition-all ${
-                active ? VARIANT[variant].activeBtn : VARIANT.idleBtn
+                active
+                  ? variant === "blue"
+                    ? "bg-blue-500/20 border-blue-400/30"
+                    : "bg-purple-500/20 border-purple-400/30"
+                  : "bg-white/5 border-white/15 hover:bg-white/10"
               }`}
             >
               <Icon
                 className={`h-4 w-4 transition-colors ${
-                  active ? VARIANT[variant].activeIcon : VARIANT.idleIcon
+                  active
+                    ? variant === "blue"
+                      ? "text-blue-300"
+                      : "text-purple-300"
+                    : "text-white/60"
                 }`}
               />
               <span className="text-xs font-medium text-white/90">{label}</span>
               <div
                 className={`ml-auto h-2 w-2 rounded-full transition-all ${
-                  active ? VARIANT[variant].dot : VARIANT.idleDot
+                  active
+                    ? variant === "blue"
+                      ? "bg-blue-400"
+                      : "bg-purple-400"
+                    : "bg-white/30"
                 }`}
               />
             </button>
@@ -247,13 +236,15 @@ function EdgeStyleBar({ value, onChange, className = "" }: StyleBarProps) {
         <span className="text-sm font-medium text-white/90">Vista previa</span>
         <div className="flex h-8 items-center justify-center rounded-lg bg-white/5 p-2">
           <div
-            className="relative h-1.5 w-full overflow-hidden rounded-full"
+            className="relative w-full overflow-hidden rounded-full"
             style={{
               background: value.dashed
                 ? `repeating-linear-gradient(90deg, ${EDGE_COLORS[safeColor]} 0 3px, transparent 3px 6px)`
                 : EDGE_COLORS[safeColor],
               opacity: value.animated ? 0.8 : 1,
-              height: thicknessConfig[value.thickness].value * 1.5,
+              height:
+                ({ thin: 1, normal: 2, thick: 4 } as any)[value.thickness] *
+                1.5,
             }}
           >
             {value.animated && (
@@ -266,87 +257,32 @@ function EdgeStyleBar({ value, onChange, className = "" }: StyleBarProps) {
   );
 }
 
-/** Panel flotante draggable para configurar edges */
+/** Panel anclado (sin drag) */
 export default function EdgeStylePopover({
   open,
   value,
   onChange,
   onClose,
 }: PopoverProps) {
-  const boxRef = useRef<HTMLDivElement | null>(null);
-  const draggingRef = useRef(false);
-  const offsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
-
-  const [pos, setPos] = useState<{ x: number; y: number }>({ x: 0, y: 76 });
-
-  // Centrar al abrir
-  useEffect(() => {
-    if (!open) return;
-    const w = boxRef.current?.offsetWidth ?? 380;
-    const centerX = Math.max(12, window.innerWidth / 2 - w / 2);
-    setPos({ x: centerX, y: 76 });
-  }, [open]);
-
-  useEffect(() => {
-    const onMove = (e: MouseEvent) => {
-      if (!draggingRef.current) return;
-      const x = Math.min(
-        Math.max(8, e.clientX - offsetRef.current.x),
-        window.innerWidth - 8
-      );
-      const y = Math.min(
-        Math.max(8, e.clientY - offsetRef.current.y),
-        window.innerHeight - 8
-      );
-      setPos({ x, y });
-    };
-    const onUp = () => (draggingRef.current = false);
-
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
-    return () => {
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
-    };
-  }, []);
-
   if (!open) return null;
 
   return (
-    <div
-      ref={boxRef}
-      className="fixed z-[60] select-none"
-      style={{ left: pos.x, top: pos.y, width: 380 }}
-    >
-      {/* Contenedor con header draggable */}
+    <div className="fixed bottom-4 right-4 z-[60] w-[380px]">
       <div className="rounded-xl border border-white/15 bg-[#0f1116]/95 backdrop-blur-lg shadow-2xl">
-        <div
-          className="flex items-center justify-between px-4 py-3 border-b border-white/10 cursor-grab active:cursor-grabbing"
-          onMouseDown={(e) => {
-            draggingRef.current = true;
-            const rect = (
-              e.currentTarget.parentElement as HTMLDivElement
-            ).getBoundingClientRect();
-            offsetRef.current = {
-              x: e.clientX - rect.left,
-              y: e.clientY - rect.top,
-            };
-          }}
-        >
-          <div className="flex items-center gap-2 text-white/80">
-            <GripVertical size={16} />
-            <span className="text-sm font-medium">Estilos de conexión</span>
+        <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
+          <div className="text-sm font-medium text-white/80">
+            Estilos de conexión
           </div>
           <button
             onClick={onClose}
-            className="rounded-md p-1 text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+            className="rounded-md p-1 text-white/70 transition-colors hover:bg-white/10 hover:text-white"
             aria-label="Cerrar"
+            title="Cerrar"
           >
             <X size={16} />
           </button>
         </div>
 
-        {/* Contenido */}
         <div className="p-4">
           <EdgeStyleBar value={value} onChange={onChange} />
         </div>

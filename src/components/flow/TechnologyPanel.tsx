@@ -1,4 +1,3 @@
-// src/components/TechnologyPanel.tsx
 import {
   ChevronDown,
   ChevronRight,
@@ -13,7 +12,7 @@ import {
   Plus,
   HelpCircle,
 } from "lucide-react";
-import { useMemo, useState, useRef, useEffect } from "react";
+import { useMemo, useState } from "react";
 import { zoneTemplates } from "../data/zones";
 import { cloudZones } from "../data/CloudZones";
 import { dmzZones } from "../data/DmzZones";
@@ -52,6 +51,7 @@ const SUBZONES_BY_ZONE: Record<
     name: string;
     description?: string;
     color: string;
+    level: "low" | "medium" | "high";
     icon?: string;
   }>
 > = {
@@ -70,10 +70,6 @@ export const TechnologyPanel: React.FC<SidebarProps> = ({
   const [openZones, setOpenZones] = useState<Set<string>>(new Set());
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const [position, setPosition] = useState({ x: 0, y: 0 });
-  const panelRef = useRef<HTMLDivElement>(null);
-  const dragOffset = useRef({ x: 0, y: 0 });
 
   const toggleZone = (id: string) => {
     setOpenZones((prev) => {
@@ -124,7 +120,6 @@ export const TechnologyPanel: React.FC<SidebarProps> = ({
 
       // Si coincide alguna subzona, aseguro que el acordeón aparezca abierto
       if (inSub) {
-        // open by default when filtering (no side effects during render)
         setTimeout(() => {
           setOpenZones((prev) => {
             const next = new Set(prev);
@@ -150,64 +145,18 @@ export const TechnologyPanel: React.FC<SidebarProps> = ({
     );
   };
 
-  // Funcionalidad de arrastre para el panel
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (panelRef.current) {
-      setIsDragging(true);
-      const rect = panelRef.current.getBoundingClientRect();
-      dragOffset.current = {
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top,
-      };
-    }
-  };
-
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!isDragging) return;
-      setPosition({
-        x: e.clientX - dragOffset.current.x,
-        y: e.clientY - dragOffset.current.y,
-      });
-    };
-
-    const handleMouseUp = () => {
-      setIsDragging(false);
-    };
-
-    if (isDragging) {
-      document.addEventListener("mousemove", handleMouseMove);
-      document.addEventListener("mouseup", handleMouseUp);
-    }
-
-    return () => {
-      document.removeEventListener("mousemove", handleMouseMove);
-      document.removeEventListener("mouseup", handleMouseUp);
-    };
-  }, [isDragging]);
-
   return (
     <aside
-      ref={panelRef}
       className={[
-        "fixed z-40 w-80 h-[calc(100vh-100px)]",
+        "h-full w-full",
         "bg-[#0f1115] text-white/90",
-        "border border-white/10 rounded-lg",
-        "flex flex-col shadow-xl",
-        "select-none",
-        isDragging ? "cursor-grabbing" : "cursor-default",
+        "border-r border-white/10",
+        "flex flex-col",
         className,
       ].join(" ")}
-      style={{
-        left: position.x,
-        top: position.y,
-      }}
     >
-      {/* Header con capacidad de arrastre */}
-      <div
-        className="sticky top-0 z-10 border-b border-white/10 bg-[#0f1115]/95 backdrop-blur rounded-t-lg cursor-grab active:cursor-grabbing"
-        onMouseDown={handleMouseDown}
-      >
+      {/* Header */}
+      <div className="sticky top-0 z-10 border-b border-white/10 bg-[#0f1115]/95 backdrop-blur">
         <div className="px-3 pt-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <h2 className="text-sm font-semibold tracking-wide">
@@ -243,7 +192,6 @@ export const TechnologyPanel: React.FC<SidebarProps> = ({
                 • Las zonas con subzonas (nube) contienen opciones específicas
               </p>
               <p>• Usa la búsqueda para filtrar zonas y subzonas</p>
-              <p>• Arrastra el panel por el título para moverlo</p>
             </div>
           </div>
         )}
@@ -330,7 +278,9 @@ export const TechnologyPanel: React.FC<SidebarProps> = ({
                           <span
                             className="uppercase font-medium"
                             style={{ color: z.color }}
-                          ></span>
+                          >
+                            {z.level}
+                          </span>
                         </div>
                         <button
                           onClick={() => onCreateZone?.(z.id)}
@@ -365,6 +315,7 @@ export const TechnologyPanel: React.FC<SidebarProps> = ({
                           <div
                             className="px-2 py-1 rounded-md"
                             style={{ color: s.color }}
+                            title={s.level.toUpperCase()}
                           >
                             {s.icon ?? "•"}
                           </div>
@@ -378,6 +329,13 @@ export const TechnologyPanel: React.FC<SidebarProps> = ({
                               </div>
                             )}
                           </div>
+                          <span
+                            className="text-[10px] px-2 py-0.5 rounded-full border border-white/10 text-white/60 group-hover:bg-white/10 transition-colors"
+                            title={`Nivel ${s.level}`}
+                            style={{ color: s.color }}
+                          >
+                            {s.level.toUpperCase()}
+                          </span>
                         </div>
                       ))}
                       {filterSubzones(z.id).length === 0 && (

@@ -1,5 +1,3 @@
-// share
-
 import type { ZoneKind } from "../../data/zones";
 
 export interface ShareModalProps {

@@ -955,6 +955,8 @@ export default function FlowCanvas() {
   );
 
   const [isEdgeStyleBarVisible, setIsEdgeStyleBarVisible] = useState(false);
+  const [isCanvasActionsPanelVisible, setIsCanvasActionsPanelVisible] =
+    useState(false);
 
   return (
     <div className="w-screen h-[100dvh] overflow-hidden bg-[#0f1115]">
@@ -997,37 +999,37 @@ export default function FlowCanvas() {
               isDraft={!documentId}
               isEdgeStyleBarVisible={isEdgeStyleBarVisible}
               onToggleEdgeStyleBar={() => setIsEdgeStyleBarVisible((v) => !v)}
+              isCanvasActionsPanelVisible={isCanvasActionsPanelVisible}
+              onToggleCanvasActionsPanel={() =>
+                setIsCanvasActionsPanelVisible((v) => !v)
+              }
             />
           )}
         </header>
 
         <div className="flex min-h-0 flex-1">
-          {/* Sidebar */}
+          {/* Sidebar - Ahora con altura completa y scroll interno */}
           <aside
-            className={`shrink-0 border-r border-white/10 bg-[#0f1115]/95 backdrop-blur transition-[width] duration-200 overflow-hidden relative z-40 ${
+            className={`shrink-0 border-r border-white/10 bg-[#0f1115]/95 backdrop-blur transition-[width] duration-200 overflow-hidden ${
               sidebarOpen ? "w-80" : "w-0"
             }`}
           >
-            {sidebarOpen && (
-              <div className="h-full overflow-y-auto">
+            <div className="h-full flex flex-col">
+              {/* TechnologyPanel con altura ajustada */}
+              <div className="overflow-hidden">
                 <TechnologyPanel
                   onNodeSelect={(nodeType) => {
                     console.log("Arrastrando nodo:", nodeType);
                   }}
                   onCreateZone={handleCreateZone}
                 />
-
-                <RecommendedTechPanel
-                  selected={selectedZone}
-                  onAddTechnology={handleAddTechnology}
-                />
               </div>
-            )}
+            </div>
           </aside>
 
           {/* Canvas: z bajo y SIN isolation para no encerrar overlays */}
-          <div className="relative min-h-0 flex-1" style={{ zIndex: 0 }}>
-            <div className="absolute inset-0 pb-10" style={{ zIndex: 0 }}>
+          <div className="relative min-h-0 flex-1">
+            <div className="absolute inset-0 pb-10">
               <ReactFlow
                 key={
                   activeSheet
@@ -1086,6 +1088,8 @@ export default function FlowCanvas() {
 
                 {/* Acciones de UI locales (solo toggles) */}
                 <CanvasActionsPanel
+                  open={isCanvasActionsPanelVisible}
+                  onClose={() => setIsCanvasActionsPanelVisible(false)}
                   sidebarOpen={sidebarOpen}
                   toolbarOpen={toolbarOpen}
                   onToggleSidebar={() => setSidebarOpen((v) => !v)}
@@ -1126,6 +1130,11 @@ export default function FlowCanvas() {
                 value={edgePreset}
                 onChange={setEdgePreset}
                 onClose={() => setIsEdgeStyleBarVisible(false)}
+              />
+
+              <RecommendedTechPanel
+                selected={selectedZone}
+                onAddTechnology={handleAddTechnology}
               />
             </div>
           </div>
