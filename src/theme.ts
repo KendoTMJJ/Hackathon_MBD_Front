@@ -9,12 +9,11 @@ export function getSystemPref(): Theme {
 
 export function getStoredTheme(): Theme | null {
   const v = localStorage.getItem(STORAGE_KEY);
-  if (v === "light" || v === "dark") return v;
-  return null;
+  return v === "light" || v === "dark" ? v : null;
 }
 
 export function applyTheme(theme: Theme) {
-  const root = document.documentElement;
+  const root = document.documentElement; // <html>
   root.dataset.theme = theme;
   (root as HTMLElement).style.colorScheme = theme;
   localStorage.setItem(STORAGE_KEY, theme);
@@ -30,4 +29,9 @@ export function toggleTheme() {
   const root = document.documentElement;
   const current = (root.dataset.theme as Theme) || getSystemPref();
   applyTheme(current === "dark" ? "light" : "dark");
+}
+
+export function getCurrentTheme(): Theme {
+  const root = document.documentElement;
+  return (root.dataset.theme as Theme) || getSystemPref();
 }

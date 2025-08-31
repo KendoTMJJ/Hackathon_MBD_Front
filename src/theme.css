@@ -1,6 +1,7 @@
 /* theme.css — alterna claro/oscuro invirtiendo colores globalmente */
+
+/* Por defecto: oscuro (como tu UI actual) */
 :root {
-  /* Por defecto: oscuro (como tu UI actual) */
   color-scheme: dark;
   --transition: 200ms ease;
 }
@@ -9,8 +10,11 @@
 html,
 body,
 #root {
-  transition: background-color var(--transition), color var(--transition),
+  transition:
+    background-color var(--transition),
+    color var(--transition),
     filter var(--transition);
+  min-height: 100%;
 }
 
 /* En modo claro: invertimos todo el #root */
@@ -18,15 +22,14 @@ body,
   filter: invert(1) hue-rotate(180deg);
 }
 
-/* Re-invertimos medios/elementos que deben verse "naturales" */
+/* Re-invertimos medios/elementos que deben verse “naturales” en claro */
 :root[data-theme="light"] img,
 :root[data-theme="light"] video,
 :root[data-theme="light"] canvas,
-:root[data-theme="light"] svg[class*="no-invert"],
+:root[data-theme="light"] svg.no-invert,
 :root[data-theme="light"] .no-invert {
   filter: invert(1) hue-rotate(180deg);
 }
 
-/* Utilidad: pon "no-invert" en lo que no quieras alterar en claro */
-.no-invert {
-}
+/* Utilidad: aplica esta clase a lo que NO quieras alterar en claro */
+.no-invert {}

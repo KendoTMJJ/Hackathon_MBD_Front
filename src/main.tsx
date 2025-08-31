@@ -8,6 +8,8 @@ import App from "./App";
 import { WebSocketProvider } from "./context/WebSocketContext";
 import "./index.css";
 import "./theme.css";
+import { initTheme } from "./theme";
+initTheme();
 
 const domain = import.meta.env.VITE_AUTH0_DOMAIN as string;
 const clientId = import.meta.env.VITE_AUTH0_CLIENT_ID as string;
