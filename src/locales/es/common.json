@@ -1,0 +1,53 @@
+{
+  "header": {
+    "searchPlaceholder": "Buscar plantillas o documentos...",
+    "new": "Nuevo",
+    "loadSample": "Cargar plantilla de prueba",
+    "blankBoard": "Tablero en blanco"
+  },
+  "sidebar": {
+    "home": "Inicio",
+    "documents": "Documentos",
+    "templates": "Plantillas",
+    "personal": "Personal",
+    "new": "Nuevo"
+  },
+  "home": {
+    "welcome": "Bienvenido",
+    "subtitle": "Crea diagramas claros y colabora en tiempo real."
+  },
+  "sections": {
+    "orgChart": "Organigrama",
+    "mindMap": "Mapa mental",
+    "flowchart": "Diagrama de flujo",
+    "conceptMap": "Mapa conceptual"
+  },
+  "actions": {
+    "connections": "Conexiones",
+    "save": "Guardar",
+    "share": "Compartir",
+    "info": "Información"
+  },
+  "lang": { "switch": "Cambiar idioma", "es": "ES", "en": "EN" },
+
+  "documents": {
+    "empty": "Aún no tienes documentos.",
+    "type": "Documento",
+    "open": "Abrir",
+    "delete": "Eliminar",
+    "deleting": "Eliminando...",
+    "deleteConfirm": "¿Eliminar definitivamente \"{{name}}\"? Esta acción no se puede deshacer.",
+    "errors": {
+      "forbidden": "No tienes permiso para eliminar este documento.",
+      "notFound": "El documento ya no existe.",
+      "genericDelete": "No se pudo eliminar el documento."
+    }
+  },
+
+  "templates": {
+    "empty": "No tienes plantillas aún.",
+    "hint": "Usa \"Cargar plantilla de prueba\" o crea una desde el editor.",
+    "type": "Plantilla",
+    "use": "Usar plantilla"
+  }
+}

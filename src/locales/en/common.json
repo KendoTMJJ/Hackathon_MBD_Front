@@ -1,0 +1,53 @@
+{
+  "header": {
+    "searchPlaceholder": "Search templates or documents...",
+    "new": "New",
+    "loadSample": "Load sample template",
+    "blankBoard": "Blank board"
+  },
+  "sidebar": {
+    "home": "Home",
+    "documents": "Documents",
+    "templates": "Templates",
+    "personal": "Personal",
+    "new": "New"
+  },
+  "home": {
+    "welcome": "Welcome",
+    "subtitle": "Create clear diagrams and collaborate in real time."
+  },
+  "sections": {
+    "orgChart": "Org chart",
+    "mindMap": "Mind map",
+    "flowchart": "Flowchart",
+    "conceptMap": "Concept map"
+  },
+  "actions": {
+    "connections": "Connections",
+    "save": "Save",
+    "share": "Share",
+    "info": "Info"
+  },
+  "lang": { "switch": "Switch language", "es": "ES", "en": "EN" },
+
+  "documents": {
+    "empty": "You don't have any documents yet.",
+    "type": "Document",
+    "open": "Open",
+    "delete": "Delete",
+    "deleting": "Deleting...",
+    "deleteConfirm": "Permanently delete \"{{name}}\"? This action cannot be undone.",
+    "errors": {
+      "forbidden": "You don’t have permission to delete this document.",
+      "notFound": "The document no longer exists.",
+      "genericDelete": "Could not delete the document."
+    }
+  },
+
+  "templates": {
+    "empty": "You don't have any templates yet.",
+    "hint": "Use \"Load sample template\" or create one from the editor.",
+    "type": "Template",
+    "use": "Use template"
+  }
+}

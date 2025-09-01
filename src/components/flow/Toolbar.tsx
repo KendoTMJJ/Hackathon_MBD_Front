@@ -32,11 +32,11 @@ export default function Toolbar({
           aria-label="Home"
           title="Volver al inicio"
         >
-          <span className="grid h-8 w-8 place-items-center select-none rounded-md bg-gradient-to-br from-[#ec1e79] to-[#ff5e9a] font-extrabold text-white shadow-lg">
-            Bl
+          <span className="grid h-8 w-10 place-items-center select-none rounded-md bg-gradient-to-br from-[#ec1e79] to-[#ff5e9a] font-extrabold text-white shadow-lg">
+            BHA
           </span>
           <span className="font-bold tracking-tight text-lg bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
-            Black Hat
+            Black Hat Archetype
           </span>
         </div>
 

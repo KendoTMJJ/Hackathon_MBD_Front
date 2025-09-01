@@ -13,10 +13,10 @@ const Header: React.FC = () => {
         onClick={() => nav("/")}
         aria-label="Home"
       >
-        <span className="grid h-7 w-7 place-items-center select-none rounded-md bg-[#ec1e79] font-extrabold text-white">
-          Bl
+        <span className="grid h-7 w-10 place-items-center select-none rounded-md bg-[#ec1e79] font-extrabold text-white">
+          BHA
         </span>
-        <span className="font-semibold tracking-tight">Black Hat</span>
+        <span className="font-semibold tracking-tight">Black Hat Archetype</span>
       </div>
 
       <div className="flex max-w-full items-center gap-2">
