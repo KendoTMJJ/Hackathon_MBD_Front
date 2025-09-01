@@ -57,6 +57,7 @@ import SubZoneModal from "../modals/SubZoneModal";
 import EdgeStylePopover, { type EdgePreset } from "./edges/EdgeStylePopover";
 import TitlePanel from "./TitlePanel";
 import CanvasActionsPanel from "./CanvasActionsPanel";
+import ExportGapPdfButton from "../gap/ExportGapPdfButton";
 
 const initialNodes: Node[] = [];
 const initialEdges: Edge[] = [];
@@ -1006,6 +1007,14 @@ export default function FlowCanvas() {
             />
           )}
         </header>
+
+        <div className="absolute right-4 bottom-4 z-40">
+          <ExportGapPdfButton
+            nodes={displayNodes}
+            title={title}
+            projectName="My Diagrams"
+          />
+        </div>
 
         <div className="flex min-h-0 flex-1">
           {/* Sidebar - Ahora con altura completa y scroll interno */}
