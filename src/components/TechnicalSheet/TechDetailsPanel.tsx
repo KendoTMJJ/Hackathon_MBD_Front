@@ -1,4 +1,17 @@
-import { useEffect, useMemo } from "react";
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import {
+  Info,
+  Shield,
+  Zap,
+  Globe,
+  Server,
+  Monitor,
+  X,
+  BookOpen,
+  ExternalLink,
+} from "lucide-react";
 
 export type TechLike = {
   id?: string;
@@ -7,16 +20,15 @@ export type TechLike = {
   provider?: string;
   description?: string;
   tags?: string[];
-  ZoneKind?: string; // opcional (cloud|dmz|...)
+  ZoneKind?: string;
 };
 
 type Props = {
-  tech: TechLike | null; // null = cerrado
+  tech: TechLike | null;
   onClose: () => void;
 };
 
-/** ------------------ MOCK “base de datos” ------------------ */
-/** Usa keys "slug" para que funcione con nombre o id */
+/** ------------------ MOCK DATA ------------------ */
 type MockDetails = {
   longDescription: string;
   features: string[];
@@ -94,7 +106,6 @@ const MOCK_DETAILS: Record<string, MockDetails> = {
   },
 };
 
-/** Normaliza un id/nombre a slug para buscar en MOCK_DETAILS */
 function toKey(t: TechLike | null): string | null {
   if (!t) return null;
   const base = (t.id || t.name || "").toString();
@@ -106,21 +117,71 @@ function toKey(t: TechLike | null): string | null {
     .replace(/[^a-z0-9]+/g, "");
 }
 
-/** Badge simple por zona (opcional) */
+function getTechIcon(name: string) {
+  const iconMap: Record<string, any> = {
+    antispam: Shield,
+    balanceadorcarga: Globe,
+    edr: Shield,
+    monitoreoint: Monitor,
+    switch: Server,
+    waf: Shield,
+  };
+
+  const key = name.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const IconComponent = iconMap[key] || Zap;
+  return <IconComponent className="h-6 w-6" />;
+}
+
 function ZoneBadge({ zone }: { zone?: string }) {
   if (!zone) return null;
+
   const COLORS: Record<string, string> = {
-    dmz: "bg-amber-500/20 text-amber-300",
-    lan: "bg-teal-500/20 text-teal-300",
-    datacenter: "bg-sky-500/20 text-sky-300",
-    cloud: "bg-violet-500/20 text-violet-300",
-    ot: "bg-emerald-500/20 text-emerald-300",
+    dmz: "bg-amber-100 text-amber-800 border-amber-300",
+    lan: "bg-emerald-100 text-emerald-800 border-emerald-300",
+    datacenter: "bg-blue-100 text-blue-800 border-blue-300",
+    cloud: "bg-purple-100 text-purple-800 border-purple-300",
+    ot: "bg-teal-100 text-teal-800 border-teal-300",
   };
-  const cls = COLORS[zone] || "bg-white/10 text-white/70";
+
+  const cls = COLORS[zone] || "bg-gray-100 text-gray-800 border-gray-300";
+
   return (
-    <span className={`px-2 py-0.5 rounded text-xs font-medium ${cls}`}>
+    <span
+      className={`px-3 py-1.5 rounded-full text-xs font-semibold border ${cls}`}
+    >
       {zone.toUpperCase()}
     </span>
+  );
+}
+
+function ExplainerTooltip({
+  term,
+  explanation,
+}: {
+  term: string;
+  explanation: string;
+}) {
+  const [activeTooltip, setActiveTooltip] = useState(false);
+
+  return (
+    <div className="relative inline-block">
+      <button
+        className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-700 transition-colors"
+        onMouseEnter={() => setActiveTooltip(true)}
+        onMouseLeave={() => setActiveTooltip(false)}
+        onClick={() => setActiveTooltip(!activeTooltip)}
+      >
+        <span className="underline decoration-dotted">{term}</span>
+        <Info className="h-4 w-4" />
+      </button>
+
+      {activeTooltip && (
+        <div className="absolute left-0 top-full z-20 mt-2 w-72 rounded-xl border border-gray-200 bg-white p-4 shadow-xl">
+          <p className="text-sm text-gray-700">{explanation}</p>
+          <div className="absolute -top-1 left-4 h-3 w-3 rotate-45 border-l border-t border-gray-200 bg-white" />
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -128,128 +189,187 @@ function ZoneBadge({ zone }: { zone?: string }) {
 export default function TechDetailsPanel({ tech, onClose }: Props) {
   const key = toKey(tech);
   const data = useMemo(() => (key ? MOCK_DETAILS[key] : undefined), [key]);
+  const [isVisible, setIsVisible] = useState(false);
 
-  // Cerrar con ESC
   useEffect(() => {
-    const h = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const h = (e: KeyboardEvent) => e.key === "Escape" && handleClose();
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
-  }, [onClose]);
+  }, []);
 
-  // No render si está cerrado
+  useEffect(() => {
+    if (tech) {
+      setIsVisible(true);
+    } else {
+      setIsVisible(false);
+    }
+  }, [tech]);
+
+  const handleClose = () => {
+    setIsVisible(false);
+    setTimeout(onClose, 300);
+  };
+
   if (!tech) return null;
 
   return (
-    <div className="pointer-events-none fixed inset-0 z-[60]">
-      {/* backdrop */}
+    <div
+      className={`fixed inset-0 z-50 transition-opacity duration-300 ${
+        isVisible ? "opacity-100" : "opacity-0 pointer-events-none"
+      }`}
+    >
+      {/* Backdrop con overlay suave */}
       <div
-        className="pointer-events-auto absolute inset-0 bg-black/40"
-        onClick={onClose}
+        className="absolute inset-0 bg-black/20 backdrop-blur-sm transition-opacity duration-300"
+        onClick={handleClose}
       />
 
-      {/* panel lateral */}
-      <aside className="pointer-events-auto absolute right-0 top-0 h-full w-[380px] max-w-[90vw] bg-[#0f1115] border-l border-white/10 shadow-xl">
-        <header className="flex items-center gap-3 px-4 py-3 border-b border-white/10">
-          <img
-            src={tech.imageUrl || "/images/placeholder.png"}
-            alt={tech.name || "tech"}
-            className="h-8 w-8 rounded object-contain bg-white/5"
-          />
-          <div className="min-w-0">
-            <h3 className="text-white text-sm font-semibold truncate">
+      {/* Panel lateral con animación de entrada */}
+      <aside
+        className={`absolute right-0 top-0 h-full w-[440px] max-w-[90vw] bg-white shadow-2xl transform transition-transform duration-300 ease-in-out ${
+          isVisible ? "translate-x-0" : "translate-x-full"
+        }`}
+      >
+        {/* Header */}
+        <header className="flex items-center gap-4 px-6 py-5 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
+          <div className="flex items-center justify-center w-14 h-14 bg-blue-50 rounded-xl border border-blue-200 shadow-sm">
+            {tech.imageUrl ? (
+              <img
+                src={tech.imageUrl}
+                alt={tech.name || "tech"}
+                className="h-8 w-8 object-contain"
+              />
+            ) : (
+              <div className="text-blue-600">
+                {getTechIcon(tech.name || "")}
+              </div>
+            )}
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <h3 className="text-gray-900 text-xl font-bold truncate">
               {tech.name || "Tecnología"}
             </h3>
             <div className="flex items-center gap-2 mt-1">
               <ZoneBadge zone={tech.ZoneKind} />
               {tech.provider && (
-                <span className="text-xs text-white/60 truncate">
-                  {tech.provider}
+                <span className="text-sm text-gray-600 truncate">
+                  por {tech.provider}
                 </span>
               )}
             </div>
           </div>
+
           <button
-            onClick={onClose}
-            className="ml-auto rounded-md px-2 py-1 text-white/70 hover:text-white hover:bg-white/10"
-            aria-label="Cerrar"
-            title="Cerrar"
+            onClick={handleClose}
+            className="rounded-lg p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+            aria-label="Cerrar panel"
           >
-            ✕
+            <X className="h-5 w-5" />
           </button>
         </header>
 
-        <div className="px-4 py-3 space-y-4 overflow-y-auto h-[calc(100%-48px)] scrollbar-hide">
-          {/* Descripción corta (si viene en el nodo) */}
-          {tech.description && (
-            <p className="text-sm text-white/80">{tech.description}</p>
+        {/* Contenido */}
+        <div className="px-6 py-6 space-y-6 overflow-y-auto h-[calc(100%-88px)]">
+          {/* Descripción principal */}
+          {(tech.description || data?.longDescription) && (
+            <section className="space-y-3">
+              <h4 className="text-gray-900 font-semibold text-lg flex items-center gap-3">
+                <div className="w-2 h-6 bg-blue-500 rounded-full"></div>
+                ¿Qué hace esta tecnología?
+              </h4>
+              <div className="bg-blue-50 rounded-xl p-4 space-y-3 border border-blue-100">
+                {tech.description && (
+                  <p className="text-gray-800 text-sm leading-relaxed">
+                    {tech.description}
+                  </p>
+                )}
+                {data?.longDescription && (
+                  <p className="text-gray-700 text-sm leading-relaxed">
+                    {data.longDescription}
+                  </p>
+                )}
+              </div>
+            </section>
           )}
 
-          {/* Descripción larga (mock) */}
-          {data?.longDescription && (
-            <p className="text-sm text-white/70">{data.longDescription}</p>
-          )}
-
-          {/* Features */}
+          {/* Características principales */}
           {data?.features?.length ? (
-            <section>
-              <h4 className="text-xs font-semibold text-white/70 uppercase tracking-wide mb-2">
-                Características
+            <section className="space-y-3">
+              <h4 className="text-gray-900 font-semibold text-lg flex items-center gap-3">
+                <div className="w-2 h-6 bg-green-500 rounded-full"></div>
+                Características principales
               </h4>
-              <ul className="list-disc list-inside space-y-1 text-sm text-white/80">
-                {data.features.map((f, i) => (
-                  <li key={i}>{f}</li>
+              <div className="grid gap-3">
+                {data.features.map((feature, i) => (
+                  <div
+                    key={i}
+                    className="flex items-start gap-3 p-4 bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow"
+                  >
+                    <div className="w-2 h-2 bg-green-500 rounded-full mt-2 flex-shrink-0"></div>
+                    <span className="text-sm text-gray-800 leading-relaxed">
+                      {feature}
+                    </span>
+                  </div>
                 ))}
-              </ul>
+              </div>
             </section>
           ) : null}
 
-          {/* Casos ideales */}
+          {/* Casos de uso */}
           {data?.bestFor?.length ? (
-            <section>
-              <h4 className="text-xs font-semibold text-white/70 uppercase tracking-wide mb-2">
-                Ideal para
+            <section className="space-y-3">
+              <h4 className="text-gray-900 font-semibold text-lg flex items-center gap-3">
+                <div className="w-2 h-6 bg-purple-500 rounded-full"></div>
+                <ExplainerTooltip
+                  term="¿Dónde se usa?"
+                  explanation="Estas son las ubicaciones más comunes donde esta tecnología es más efectiva en una red empresarial."
+                />
               </h4>
               <div className="flex flex-wrap gap-2">
-                {data.bestFor.map((b, i) => (
+                {data.bestFor.map((use, i) => (
                   <span
                     key={i}
-                    className="px-2 py-1 rounded bg-white/5 text-xs text-white/70"
+                    className="px-3 py-2 rounded-xl bg-purple-50 text-purple-800 text-sm font-medium border border-purple-200"
                   >
-                    {b}
+                    {use}
                   </span>
                 ))}
               </div>
             </section>
           ) : null}
 
-          {/* Tags si vienen del nodo */}
+          {/* Tags */}
           {tech.tags?.length ? (
-            <section>
-              <h4 className="text-xs font-semibold text-white/70 uppercase tracking-wide mb-2">
-                Tags
+            <section className="space-y-3">
+              <h4 className="text-gray-900 font-semibold text-lg flex items-center gap-3">
+                <div className="w-2 h-6 bg-orange-500 rounded-full"></div>
+                Categorías
               </h4>
               <div className="flex flex-wrap gap-2">
-                {tech.tags.map((t, i) => (
+                {tech.tags.map((tag, i) => (
                   <span
                     key={i}
-                    className="px-2 py-1 rounded bg-white/5 text-xs text-white/70"
+                    className="px-3 py-1.5 rounded-xl bg-gray-100 text-gray-700 text-xs font-medium border border-gray-200"
                   >
-                    #{t}
+                    #{tag}
                   </span>
                 ))}
               </div>
             </section>
           ) : null}
 
-          {/* Acción/documentación (mock) */}
-          <div className="pt-2">
+          {/* Botón de documentación */}
+          <div className="pt-4 border-t border-gray-200">
             <a
               href={data?.docsUrl || "#"}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-2 rounded-md border border-white/15 px-3 py-2 text-xs text-white hover:bg-white/10"
+              className="inline-flex items-center justify-center gap-3 w-full rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-4 text-sm font-semibold hover:from-blue-700 hover:to-blue-800 transition-all shadow-md hover:shadow-lg"
             >
-              Ver documentación
+              <BookOpen className="text-white h-5 w-5" />
+              <span className="text-white">Documentación técnica</span>
+              <ExternalLink className="text-white h-4 w-4" />
             </a>
           </div>
         </div>

@@ -3,8 +3,8 @@ import { useAuth0 } from "@auth0/auth0-react";
 import axios, { type AxiosInstance } from "axios";
 import { useMemo } from "react";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
-const AUDIENCE = import.meta.env.VITE_AUTH0_AUDIENCE || "";
+const API_BASE = import.meta.env.VITE_API_BASE_URL;
+const AUDIENCE = import.meta.env.VITE_AUTH0_AUDIENCE;
 
 export function useApi(): AxiosInstance {
   const { getAccessTokenSilently } = useAuth0();

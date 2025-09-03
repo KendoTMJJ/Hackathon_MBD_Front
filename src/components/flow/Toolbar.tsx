@@ -1,4 +1,5 @@
-import { Save, FilePlus, RefreshCw, Settings } from "lucide-react";
+// src/components/canvas/Toolbar.tsx
+import { Save, FilePlus, RefreshCw, Settings, Download } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import type ViewProps from "./props/props";
 
@@ -16,11 +17,20 @@ export default function Toolbar({
 
   isCanvasActionsPanelVisible,
   onToggleCanvasActionsPanel,
+
+  onExportPdf, // 👈 nuevo
 }: ViewProps) {
   const nav = useNavigate();
 
   const btnBase =
     "rounded-lg border p-3 text-sm transition-all duration-200 flex items-center gap-2 focus:outline-none focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed font-medium";
+
+  const toggleBtn = (active?: boolean) =>
+    `${btnBase} ${
+      active
+        ? "border-blue-500 bg-blue-100 text-blue-700 ring-2 ring-blue-500/20 shadow-sm"
+        : "border-gray-300 bg-white text-gray-700 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 shadow-sm"
+    }`;
 
   return (
     <header className="flex items-center justify-between border-b border-[#313138] bg-white px-4 py-2.5 shadow-md relative z-50">
@@ -59,7 +69,7 @@ export default function Toolbar({
 
       {/* Acciones */}
       <div className="flex items-center gap-2">
-        {/* Botón de configuración de conexiones */}
+        {/* Conexiones */}
         <button
           onClick={onToggleEdgeStyleBar}
           className={`${btnBase} ${
@@ -73,6 +83,7 @@ export default function Toolbar({
           <span className="hidden sm:inline">Conexiones</span>
         </button>
 
+        {/* Vista */}
         <button
           onClick={onToggleCanvasActionsPanel}
           className={`${btnBase} ${
@@ -86,10 +97,20 @@ export default function Toolbar({
           <span className="hidden sm:inline">Vista</span>
         </button>
 
+        {/* Exportar PDF */}
+        <button
+          onClick={onExportPdf}
+          className={toggleBtn(false)}
+          title="Exportar reporte de seguridad en PDF"
+        >
+          <Download size={18} />
+          <span className="hidden sm:inline">Exportar</span>
+        </button>
+
         {/* Separador */}
         <div className="h-6 w-px bg-gray-300 mx-2"></div>
 
-        {/* Botón de guardar/crear */}
+        {/* Guardar/Crear */}
         <button
           onClick={onSave}
           disabled={!!saving}
@@ -112,7 +133,7 @@ export default function Toolbar({
           </span>
         </button>
 
-        {/* Botón de actualizar plantilla */}
+        {/* Actualizar plantilla */}
         {canUpdateTemplate && (
           <button
             onClick={onUpdateTemplate}
@@ -133,7 +154,7 @@ export default function Toolbar({
           </button>
         )}
 
-        {/* Información de estado */}
+        {/* Info de estado */}
         <div className="ml-2 flex items-center">
           <div className="text-xs text-gray-600 px-3 py-1.5 rounded-lg border border-gray-200 bg-white/80 backdrop-blur-sm hidden md:block">
             {saving && "Guardando..."}

@@ -36,4 +36,6 @@ export default interface ViewProps {
   // opcionales, por si querés propagar el preset desde Toolbar
   edgeStyle?: EdgePreset;
   onEdgeStyleChange?: (style: EdgePreset) => void;
+
+  onExportPdf?: () => void; // 👈 NUEVO
 }

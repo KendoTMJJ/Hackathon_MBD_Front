@@ -28,7 +28,6 @@ import { useAuth0 } from "@auth0/auth0-react";
 import { nodeTypes } from "./nodes";
 import { edgeTypes } from "./edges";
 import { TechnologyPanel } from "./TechnologyPanel";
-import Toolbar from "./Toolbar";
 
 import { useCollab } from "../../hooks/useCollab";
 import { useApi } from "../../hooks/useApi";
@@ -57,7 +56,12 @@ import SubZoneModal from "../modals/SubZoneModal";
 import EdgeStylePopover, { type EdgePreset } from "./edges/EdgeStylePopover";
 import TitlePanel from "./TitlePanel";
 import CanvasActionsPanel from "./CanvasActionsPanel";
-import ExportGapPdfButton from "../gap/ExportGapPdfButton";
+import { exportGapPdf } from "../gap/ExportGapPdfButton";
+import Toolbar from "./Toolbar";
+import {
+  fetchTechRequirements,
+  type RequirementsMap,
+} from "../../hooks/useTecnologies";
 
 const initialNodes: Node[] = [];
 const initialEdges: Edge[] = [];
@@ -162,6 +166,12 @@ export default function FlowCanvas() {
   const [hasInteracted, setHasInteracted] = useState(false);
 
   const [rf, setRf] = useState<ReactFlowInstance | null>(null);
+  // cerca de otros hooks:
+  // const {
+  //   requirements,
+  //   loading: reqLoading,
+  //   reload: reloadRequirements,
+  // } = useRequirements(true);
 
   // Track if user has interacted with the viewport manually
   const hasUserInteracted = useRef(false);
@@ -626,7 +636,6 @@ export default function FlowCanvas() {
     name: string;
     description?: string;
     color: string;
-    level: "low" | "medium" | "high";
     kind: ZoneKind;
   };
 
@@ -667,7 +676,6 @@ export default function FlowCanvas() {
           name: tpl.name,
           description: tpl.description,
           color: tpl.color,
-          level: tpl.level,
           kind: tpl.kind,
           title: "",
           onRename: (nodeId: string, newTitle: string) => {
@@ -960,6 +968,36 @@ export default function FlowCanvas() {
   const [isCanvasActionsPanelVisible, setIsCanvasActionsPanelVisible] =
     useState(false);
 
+  const subzonesInDiagram = useMemo(
+    () =>
+      (displayNodes ?? [])
+        .filter((n) => n.type === "zone")
+        .map((n) => String(n?.data?.id))
+        .filter(Boolean),
+    [displayNodes]
+  );
+
+  const [reqs, setReqs] = useState<RequirementsMap | null>(null);
+
+  useEffect(() => {
+    // Si no hay subzonas aún, no llames
+    if (subzonesInDiagram.length === 0) {
+      setReqs(null);
+      return;
+    }
+    fetchTechRequirements({ subzones: subzonesInDiagram })
+      .then(setReqs)
+      .catch((e) => {
+        console.error("Error cargando requirements:", e);
+        setReqs({});
+      });
+  }, [subzonesInDiagram]);
+
+  const handleExportPdf = useCallback(() => {
+    if (!reqs) return; // opcional: muestra toast de "cargando"
+    exportGapPdf(displayNodes, reqs);
+  }, [displayNodes, reqs]);
+
   return (
     <div className="w-screen h-[100dvh] overflow-hidden bg-slate-50">
       {/* CSS adicional para forzar z-index */}
@@ -988,7 +1026,7 @@ export default function FlowCanvas() {
       <div className="flex h-full w-full flex-col">
         {/* Toolbar: capa alta para que sus hovers/overlays estén encima */}
         <header
-          className="border-b border-slate-200 bg-white/90 backdrop-blur overflow-hidden transition-[height] duration-200 relative z-[100]"
+          className="border-b border-slate-200 bg-white/90 backdrop-blur transition-[height] duration-200 relative"
           style={{ height: toolbarOpen ? TOOLBAR_H : 0 }}
         >
           {toolbarOpen && (
@@ -1005,13 +1043,10 @@ export default function FlowCanvas() {
               onToggleCanvasActionsPanel={() =>
                 setIsCanvasActionsPanelVisible((v) => !v)
               }
+              onExportPdf={handleExportPdf}
             />
           )}
         </header>
-
-        <div className="absolute right-4 bottom-4 z-40">
-          <ExportGapPdfButton nodes={displayNodes} />
-        </div>
 
         <div className="flex min-h-0 flex-1">
           {/* Sidebar - Ahora con altura completa y scroll interno */}
