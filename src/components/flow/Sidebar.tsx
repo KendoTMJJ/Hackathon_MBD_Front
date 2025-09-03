@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, NavLink } from "react-router-dom";
 import { useAuth0 } from "@auth0/auth0-react";
 import { useTranslation } from "react-i18next";
-// import { useApi } from "../../hooks/useApi";
 import LanguageToggle from "../public/LanguageToggle";
 import { User } from "lucide-react";
 import { useProject } from "../../hooks/useProject";
@@ -45,8 +44,8 @@ const Sidebar: React.FC = () => {
       .join("") || "DB";
 
   const linkBase =
-    "block rounded-md px-2.5 py-2 text-[#c8c8cc] hover:bg-[#1b1b1f] hover:text-white";
-  const linkActive = "bg-[#1b1b1f] text-white";
+    "block rounded-lg px-3 py-2.5 text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors font-medium";
+  const linkActive = "bg-blue-50 text-blue-700 border-r-2 border-blue-600";
 
   const handleNew = async () => {
     if (!isAuthenticated) {
@@ -72,21 +71,21 @@ const Sidebar: React.FC = () => {
   return (
     <div className="flex h-full flex-col justify-between">
       {/* Top: usuario + acciones rápidas + navegación */}
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-4">
         {/* User chip + menú */}
-        <div className="flex items-center justify-between gap-2.5">
-          <div className="flex items-center gap-2.5">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
             <div
-              className="grid h-9 w-9 select-none place-items-center rounded-lg bg-[#2a2a2f] font-bold text-white"
+              className="grid h-10 w-10 select-none place-items-center rounded-lg bg-gradient-to-r from-blue-600 to-blue-500 font-bold text-white shadow-sm"
               aria-hidden="true"
             >
               {initials}
             </div>
             <div>
-              <div className="font-semibold">
+              <div className="font-semibold text-gray-900">
                 {isAuthenticated ? displayName : "Usuario"}
               </div>
-              <div className="text-xs text-[#c8c8cc]">
+              <div className="text-xs text-gray-500">
                 {t("sidebar.personal")}
               </div>
             </div>
@@ -102,16 +101,16 @@ const Sidebar: React.FC = () => {
                     authorizationParams: { ui_locales: uiLocale },
                   })
                 }
-                className="rounded-md border border-white/10 bg-[#171727] px-2.5 py-1.5 text-sm text-white hover:bg-[#1c1c2e]"
+                className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 shadow-sm transition-colors"
                 title={t("navbar.login")}
               >
-                <User />
+                <User size={16} />
               </button>
             ) : (
               <>
                 <button
                   onClick={() => setMenuOpen((v) => !v)}
-                  className="rounded-md px-2 py-1.5 text-sm text-white hover:bg-white/5"
+                  className="rounded-lg px-2.5 py-1.5 text-sm text-gray-500 hover:bg-gray-100 transition-colors"
                   aria-haspopup="menu"
                   aria-expanded={menuOpen}
                 >
@@ -120,11 +119,11 @@ const Sidebar: React.FC = () => {
                 {menuOpen && (
                   <div
                     role="menu"
-                    className="absolute right-0 mt-2 w-44 overflow-hidden rounded-md border border-white/10 bg-[#141420] text-sm shadow-lg"
+                    className="absolute right-0 mt-2 w-48 overflow-hidden rounded-lg border border-gray-200 bg-white text-sm shadow-lg z-10"
                   >
                     <button
                       role="menuitem"
-                      className="block w-full px-3 py-2 text-left hover:bg-white/5"
+                      className="block w-full px-4 py-2.5 text-left text-white hover:bg-gray-50 transition-colors"
                       onClick={() => {
                         setMenuOpen(false);
                         nav("/profile");
@@ -134,7 +133,7 @@ const Sidebar: React.FC = () => {
                     </button>
                     <button
                       role="menuitem"
-                      className="block w-full px-3 py-2 text-left hover:bg-white/5"
+                      className="block w-full px-4 py-2.5 text-left text-white hover:bg-gray-50 transition-colors"
                       onClick={() => {
                         setMenuOpen(false);
                         logout({
@@ -142,7 +141,7 @@ const Sidebar: React.FC = () => {
                         });
                       }}
                     >
-                      {t("navbar.logout")}
+                      {t("logout")}
                     </button>
                   </div>
                 )}
@@ -153,14 +152,14 @@ const Sidebar: React.FC = () => {
 
         {/* New button */}
         <button
-          className="w-full rounded-[10px] bg-[#ec1e79] px-3 py-2.5 text-white hover:brightness-105"
+          className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 px-4 py-3 text-white hover:from-blue-700 hover:to-blue-600 shadow-sm transition-colors font-medium"
           onClick={handleNew}
         >
           + {t("sidebar.new")}
         </button>
 
         {/* Nav links */}
-        <nav className="mt-2 flex flex-col gap-1.5" aria-label="Primary">
+        <nav className="mt-3 flex flex-col gap-1.5" aria-label="Primary">
           <NavLink
             to="/"
             end
@@ -192,7 +191,7 @@ const Sidebar: React.FC = () => {
       </div>
 
       {/* Bottom: selector de idioma */}
-      <div className="mt-4 border-t border-white/10 pt-3">
+      <div className="mt-4 border-t border-gray-200 pt-4">
         <LanguageToggle />
       </div>
     </div>

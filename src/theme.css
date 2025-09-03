@@ -10,9 +10,7 @@
 html,
 body,
 #root {
-  transition:
-    background-color var(--transition),
-    color var(--transition),
+  transition: background-color var(--transition), color var(--transition),
     filter var(--transition);
   min-height: 100%;
 }
@@ -32,4 +30,5 @@ body,
 }
 
 /* Utilidad: aplica esta clase a lo que NO quieras alterar en claro */
-.no-invert {}
+.no-invert {
+}

@@ -189,57 +189,97 @@ export default function HomePage() {
     setDocuments((prev) => prev.filter((d) => d.id !== id));
   };
 
-  // Estilos
-  const btn =
-    "px-3 py-2 rounded-[10px] border border-[#313138] bg-[#1b1b1f] text-white hover:border-[#3a3a41]";
-  const btnAccent =
-    "px-3 py-2 rounded-[10px] bg-[#ec1e79] text-white hover:brightness-105";
-
   // Render por vista (desde Sidebar)
   return (
-    <div className="flex h-screen w-full flex-col bg-[#0f0f10] text-[#f0f0f0]">
+    <div className="flex h-screen w-full flex-col bg-gradient-to-br from-gray-50 to-gray-100 text-gray-800">
       <div className="flex min-h-0 flex-1">
-        <aside className="hidden md:block w-[240px] shrink-0 bg-[#151517] border-r border-[#313138] p-[14px]">
+        <aside className="hidden md:block w-[240px] shrink-0 bg-white border-r border-gray-200 p-4 shadow-sm">
           <Sidebar />
         </aside>
 
         <div className="flex h-full min-w-0 flex-1 flex-col">
           <Header />
 
-          <div className="min-w-0 flex-1 overflow-auto p-[18px]">
+          <div className="min-w-0 flex-1 overflow-auto p-6">
             {/* ---------- HOME ---------- */}
             {view === "home" && (
               <>
-                <section className="mb-4 flex items-center justify-between rounded-[14px] border border-[#313138] bg-gradient-to-b from-[#141417] to-[#121215] p-[18px]">
-                  <div>
-                    <h1 className="text-2xl font-bold">{t("home.welcome")}</h1>
-                    <p className="mt-1 text-[#c8c8cc]">{t("home.subtitle")}</p>
+                <section className="mb-8 flex flex-col md:flex-row items-center justify-between rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+                  <div className="mb-4 md:mb-0">
+                    <h1 className="text-3xl font-bold text-gray-900">
+                      {t("home.welcome")}
+                    </h1>
+                    <p className="mt-2 text-gray-600 max-w-lg">
+                      {t("home.subtitle")}
+                    </p>
                   </div>
-                  <div className="flex gap-2">
-                    <button className={btn} onClick={handleSeedTemplate}>
+                  <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+                    <button
+                      className="px-5 py-3 rounded-lg border border-gray-300 bg-white text-white hover:bg-gray-50 transition-colors shadow-sm font-medium"
+                      onClick={handleSeedTemplate}
+                    >
                       {t("home.loadSample", {
                         defaultValue: "Cargar plantilla de prueba",
                       })}
                     </button>
-                    <button className={btnAccent} onClick={handleCreateBlank}>
+                    <button
+                      className="px-5 py-3 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-sm font-medium"
+                      onClick={handleCreateBlank}
+                    >
                       {t("home.blankBoard", {
-                        defaultValue: "Tablero en blanco",
+                        defaultValue: "Crear diagrama en blanco",
                       })}
                     </button>
                   </div>
                 </section>
 
-                <section className="mb-4 flex flex-wrap gap-2">
-                  {(
-                    ["orgChart", "mindMap", "flowchart", "conceptMap"] as const
-                  ).map((key) => (
-                    <div
-                      key={key}
-                      className="rounded-full border border-[#313138] bg-[#121214] px-[10px] py-[6px] text-[#c8c8cc] hover:border-[#3a3a41] hover:text-white"
-                    >
-                      {t(`sections.${key}`)}
-                    </div>
-                  ))}
+                <section className="mb-8">
+                  <h2 className="text-xl font-semibold mb-4 text-gray-900">
+                    Tipos de diagramas
+                  </h2>
+                  <div className="flex flex-wrap gap-3">
+                    {(
+                      [
+                        "orgChart",
+                        "mindMap",
+                        "flowchart",
+                        "conceptMap",
+                      ] as const
+                    ).map((key) => (
+                      <div
+                        key={key}
+                        className="rounded-xl border border-gray-200 bg-white px-4 py-3 text-gray-700 hover:border-blue-300 hover:shadow-md transition-all cursor-pointer"
+                      >
+                        {t(`sections.${key}`)}
+                      </div>
+                    ))}
+                  </div>
+                </section>
+
+                {/* Sección de accesos rápidos */}
+                <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div
+                    className="p-5 bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                    onClick={() => navigate("/templates")}
+                  >
+                    <h3 className="font-semibold text-lg mb-2 text-gray-900">
+                      Plantillas
+                    </h3>
+                    <p className="text-gray-600">
+                      Explora plantillas para empezar rápidamente
+                    </p>
+                  </div>
+                  <div
+                    className="p-5 bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                    onClick={() => navigate("/documents")}
+                  >
+                    <h3 className="font-semibold text-lg mb-2 text-gray-900">
+                      Mis documentos
+                    </h3>
+                    <p className="text-gray-600">
+                      Accede a tus diagramas guardados
+                    </p>
+                  </div>
                 </section>
               </>
             )}
@@ -247,27 +287,48 @@ export default function HomePage() {
             {/* ---------- TEMPLATES ---------- */}
             {view === "templates" && (
               <>
-                <h2 className="mb-3 text-lg font-semibold">Plantillas</h2>
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-2xl font-bold text-gray-900">
+                    Plantillas
+                  </h2>
+                  <button
+                    className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors text-sm font-medium"
+                    onClick={handleSeedTemplate}
+                  >
+                    + Nueva plantilla
+                  </button>
+                </div>
+
                 {loadingTpls && (
-                  <p>
-                    {t("home.loadingTemplates", {
-                      defaultValue: "Cargando plantillas…",
-                    })}
-                  </p>
+                  <div className="flex justify-center py-10">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  </div>
                 )}
-                {errTpls && <p className="text-red-400">{errTpls}</p>}
+                {errTpls && (
+                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
+                    {errTpls}
+                  </div>
+                )}
 
                 {!loadingTpls && !templates.length && (
-                  <p className="text-[#c8c8cc]">
-                    {t("home.noTemplates", {
-                      defaultValue:
-                        "No tienes plantillas aún. Usa “Cargar plantilla de prueba” o crea una desde el editor.",
-                    })}
-                  </p>
+                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 text-center">
+                    <p className="text-blue-800 mb-4">
+                      {t("home.noTemplates", {
+                        defaultValue:
+                          "No tienes plantillas aún. Usa “Cargar plantilla de prueba” o crea una desde el editor.",
+                      })}
+                    </p>
+                    <button
+                      className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                      onClick={handleSeedTemplate}
+                    >
+                      Crear plantilla de ejemplo
+                    </button>
+                  </div>
                 )}
 
                 {!!templates.length && (
-                  <section className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  <section className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
                     {templates.map((tpl) => (
                       <TemplateCard
                         key={tpl.id}
@@ -283,21 +344,45 @@ export default function HomePage() {
             {/* ---------- DOCUMENTS ---------- */}
             {view === "documents" && (
               <>
-                <h2 className="mb-3 text-lg font-semibold">Documentos</h2>
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-2xl font-bold text-gray-900">
+                    Mis Documentos
+                  </h2>
+                  <button
+                    className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors text-sm font-medium"
+                    onClick={handleCreateBlank}
+                  >
+                    + Nuevo documento
+                  </button>
+                </div>
+
                 {loadingDocs && (
-                  <p>
-                    {t("home.loadingDocuments", {
-                      defaultValue: "Cargando documentos…",
-                    })}
-                  </p>
+                  <div className="flex justify-center py-10">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  </div>
                 )}
-                {errDocs && <p className="text-red-400">{errDocs}</p>}
+                {errDocs && (
+                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
+                    {errDocs}
+                  </div>
+                )}
+
                 {!loadingDocs && !documents.length && (
-                  <p className="text-[#c8c8cc]">Aún no tienes documentos.</p>
+                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 text-center">
+                    <p className="text-blue-800 mb-4">
+                      Aún no tienes documentos.
+                    </p>
+                    <button
+                      className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                      onClick={handleCreateBlank}
+                    >
+                      Crear primer documento
+                    </button>
+                  </div>
                 )}
 
                 {!!documents.length && (
-                  <section className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  <section className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
                     {documents.map((doc) => (
                       <DocumentCard
                         key={doc.id}
@@ -305,7 +390,6 @@ export default function HomePage() {
                         onOpen={(d: DocumentEntity) =>
                           navigate(`/Board/${d.id}`)
                         }
-                        // ← ACTUALIZA INSTANTÁNEO
                         onDeleted={handleCardDeleted}
                       />
                     ))}

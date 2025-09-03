@@ -25,8 +25,6 @@ export interface DatacenterZone {
   description?: string;
   /** Color base (borde/Minimap) */
   color: string;
-  /** Nivel relativo para badges o filtros */
-  level: "low" | "medium" | "high";
   /** Emoji/char para mostrar en el panel (opcional) */
   icon?: string;
 }
@@ -37,7 +35,6 @@ export const datacenterZones: DatacenterZone[] = [
     name: "Gestión de ID",
     description: "IAM/SSO/MFA y gobierno de identidades dentro del DC.",
     color: "#E300A4",
-    level: "high",
     icon: "🆔",
   },
   {
@@ -45,7 +42,6 @@ export const datacenterZones: DatacenterZone[] = [
     name: "Serv. de Desarrollo, Calidad y Pruebas",
     description: "Ambientes Dev/QA con aislamiento y controles de cambio.",
     color: "#DFE300",
-    level: "medium",
     icon: "🧪",
   },
   {
@@ -53,7 +49,6 @@ export const datacenterZones: DatacenterZone[] = [
     name: "IPS/IDS",
     description: "Detección y prevención de intrusiones en el DC.",
     color: "#E300A4",
-    level: "high",
     icon: "⚡",
   },
   {
@@ -61,7 +56,6 @@ export const datacenterZones: DatacenterZone[] = [
     name: "Correo + Protección de Correo",
     description: "Servidores de correo con antispam/antimalware/DLP.",
     color: "#E300A4",
-    level: "high",
     icon: "📧",
   },
   {
@@ -69,7 +63,6 @@ export const datacenterZones: DatacenterZone[] = [
     name: "Almacenamiento",
     description: "Cabinas/NAS/SAN con cifrado y snapshots.",
     color: "#E300A4",
-    level: "high",
     icon: "🗄️",
   },
   {
@@ -77,7 +70,6 @@ export const datacenterZones: DatacenterZone[] = [
     name: "Intranet",
     description: "Portales internos y aplicaciones corporativas.",
     color: "#E300A4",
-    level: "medium",
     icon: "🏢",
   },
   {
@@ -85,7 +77,6 @@ export const datacenterZones: DatacenterZone[] = [
     name: "Servidor de Impresión",
     description: "Spoolers y control de impresión seguros.",
     color: "#E300A4",
-    level: "low",
     icon: "🖨️",
   },
   {
@@ -93,7 +84,7 @@ export const datacenterZones: DatacenterZone[] = [
     name: "Servidor de Backup",
     description: "Respaldos, retención, inmutabilidad y recuperación.",
     color: "#E300A4",
-    level: "high",
+
     icon: "💽",
   },
   {
@@ -101,7 +92,7 @@ export const datacenterZones: DatacenterZone[] = [
     name: "Servidores de Mensajería",
     description: "Colaboración/IM/colas internas.",
     color: "#E300A4",
-    level: "medium",
+
     icon: "💬",
   },
   {
@@ -109,7 +100,7 @@ export const datacenterZones: DatacenterZone[] = [
     name: "Directorio Activo, DNS, DHCP, NTP",
     description: "Servicios de directorio y esenciales de red.",
     color: "#E300A4",
-    level: "high",
+
     icon: "📁",
   },
   {
@@ -117,7 +108,7 @@ export const datacenterZones: DatacenterZone[] = [
     name: "Servidores Virtuales",
     description: "Clusters de virtualización, hipervisores y VM.",
     color: "#E300A4",
-    level: "high",
+
     icon: "🖥️",
   },
   {
@@ -125,7 +116,7 @@ export const datacenterZones: DatacenterZone[] = [
     name: "WAF Base de Datos",
     description: "Protección y auditoría para bases de datos.",
     color: "#E300A4",
-    level: "high",
+
     icon: "🛡️",
   },
   {
@@ -133,7 +124,7 @@ export const datacenterZones: DatacenterZone[] = [
     name: "Cifrados de Canal",
     description: "TLS/IPsec, túneles y cifrado de comunicaciones.",
     color: "#E300A4",
-    level: "high",
+
     icon: "🔐",
   },
   {
@@ -141,7 +132,7 @@ export const datacenterZones: DatacenterZone[] = [
     name: "Servidores de Aplicaciones",
     description: "App servers, middlewares y APIs internas.",
     color: "#E300A4",
-    level: "high",
+
     icon: "🧩",
   },
   {
@@ -149,7 +140,7 @@ export const datacenterZones: DatacenterZone[] = [
     name: "Base de Datos",
     description: "Motores relacionales y NoSQL con HA/replicación.",
     color: "#E300A4",
-    level: "high",
+
     icon: "🗃️",
   },
 ];

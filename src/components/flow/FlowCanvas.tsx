@@ -83,8 +83,9 @@ export default function FlowCanvas() {
     return "#94a3b8";
   }, []);
 
+  // En claro, usa trazos oscuros y suaves
   const miniMapStrokeColor = useCallback((n: Node) => {
-    return n.type === "zone" ? "#FFFFFF66" : "#00000033";
+    return n.type === "zone" ? "#00000055" : "#00000033";
   }, []);
 
   // 1) documentId o modo borrador (query)
@@ -960,7 +961,7 @@ export default function FlowCanvas() {
     useState(false);
 
   return (
-    <div className="w-screen h-[100dvh] overflow-hidden bg-[#0f1115]">
+    <div className="w-screen h-[100dvh] overflow-hidden bg-slate-50">
       {/* CSS adicional para forzar z-index */}
       <style>
         {`
@@ -987,7 +988,7 @@ export default function FlowCanvas() {
       <div className="flex h-full w-full flex-col">
         {/* Toolbar: capa alta para que sus hovers/overlays estén encima */}
         <header
-          className="border-b border-white/10 bg-[#0f1115]/95 backdrop-blur overflow-hidden transition-[height] duration-200 relative z-[100]"
+          className="border-b border-slate-200 bg-white/90 backdrop-blur overflow-hidden transition-[height] duration-200 relative z-[100]"
           style={{ height: toolbarOpen ? TOOLBAR_H : 0 }}
         >
           {toolbarOpen && (
@@ -1009,17 +1010,13 @@ export default function FlowCanvas() {
         </header>
 
         <div className="absolute right-4 bottom-4 z-40">
-          <ExportGapPdfButton
-            nodes={displayNodes}
-            title={title}
-            projectName="My Diagrams"
-          />
+          <ExportGapPdfButton nodes={displayNodes} />
         </div>
 
         <div className="flex min-h-0 flex-1">
           {/* Sidebar - Ahora con altura completa y scroll interno */}
           <aside
-            className={`shrink-0 border-r border-white/10 bg-[#0f1115]/95 backdrop-blur transition-[width] duration-200 overflow-hidden ${
+            className={`shrink-0 border-r border-slate-200 bg-white/90 backdrop-blur transition-[width] duration-200 overflow-hidden ${
               sidebarOpen ? "w-80" : "w-0"
             }`}
           >
@@ -1079,7 +1076,7 @@ export default function FlowCanvas() {
                 }}
                 className="react-flow-container"
               >
-                <Background />
+                <Background size={2} />
                 <Controls />
                 <MiniMap
                   nodeColor={miniMapNodeColor}
@@ -1087,6 +1084,7 @@ export default function FlowCanvas() {
                   nodeStrokeWidth={2}
                   pannable
                   zoomable
+                  style={{ backgroundColor: "#ffffff" }}
                 />
 
                 <TitlePanel
