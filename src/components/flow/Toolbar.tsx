@@ -1,5 +1,12 @@
-// src/components/canvas/Toolbar.tsx
-import { Save, FilePlus, RefreshCw, Settings, Download } from "lucide-react";
+import {
+  Save,
+  FilePlus,
+  RefreshCw,
+  Download,
+  Eye,
+  Share2,
+  Info,
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import type ViewProps from "./props/props";
 
@@ -11,29 +18,27 @@ export default function Toolbar({
   onUpdateTemplate,
   updatingTemplate,
   isDraft,
-
-  isEdgeStyleBarVisible,
-  onToggleEdgeStyleBar,
+  hasPendingChanges = false,
 
   isCanvasActionsPanelVisible,
   onToggleCanvasActionsPanel,
+  onToggleTools,
 
-  onExportPdf, // 👈 nuevo
+  onOpenShare,
+  onOpenInfo,
+
+  onExportPdf,
 }: ViewProps) {
   const nav = useNavigate();
 
   const btnBase =
-    "rounded-lg border p-3 text-sm transition-all duration-200 flex items-center gap-2 focus:outline-none focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed font-medium";
+    "flex items-center justify-center gap-1 px-2 py-1.5 rounded text-xs transition-colors text-white";
 
-  const toggleBtn = (active?: boolean) =>
-    `${btnBase} ${
-      active
-        ? "border-blue-500 bg-blue-100 text-blue-700 ring-2 ring-blue-500/20 shadow-sm"
-        : "border-gray-300 bg-white text-gray-700 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 shadow-sm"
-    }`;
+  const ghostBtn =
+    "border border-gray-300 bg-white text-gray-700 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 shadow-sm";
 
   return (
-    <header className="flex items-center justify-between border-b border-[#313138] bg-white px-4 py-2.5 shadow-md relative z-50">
+    <header className="flex items-center justify-between border-b border-gray-200 bg-white px-4 py-2.5 shadow-md relative z-50">
       {/* Marca / Inicio */}
       <div className="flex items-center gap-4">
         <div
@@ -51,78 +56,73 @@ export default function Toolbar({
         </div>
 
         {/* Separador */}
-        <div className="h-6 w-px bg-gray-300"></div>
-
-        {/* Estado del documento */}
-        <div className="flex items-center gap-2">
-          <div
-            className={`px-3 py-1.5 rounded-full text-xs font-medium ${
-              isDraft
-                ? "bg-amber-100 text-amber-800 border border-amber-300 shadow-sm"
-                : "bg-green-100 text-green-800 border border-green-300 shadow-sm"
-            }`}
-          >
-            {isDraft ? "Borrador" : "Guardado"}
-          </div>
-        </div>
+        <div className="h-6 w-px bg-gray-300" />
       </div>
 
       {/* Acciones */}
       <div className="flex items-center gap-2">
-        {/* Conexiones */}
-        <button
-          onClick={onToggleEdgeStyleBar}
-          className={`${btnBase} ${
-            isEdgeStyleBarVisible
-              ? "border-blue-500 bg-blue-100 text-blue-700 ring-2 ring-blue-500/20 shadow-sm"
-              : "border-gray-300 bg-white text-white hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 shadow-sm"
-          }`}
-          title="Configurar estilos de conexión"
+        {/* Estado: guardado / cambios / borrador / guardando */}
+        <div
+          className={[
+            "px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-2 border shadow-sm",
+            saving
+              ? "bg-blue-100 text-blue-800 border-blue-300"
+              : hasPendingChanges
+              ? "bg-amber-100 text-amber-900 border-amber-300"
+              : isDraft
+              ? "bg-amber-100 text-amber-800 border-amber-300"
+              : "bg-green-100 text-green-800 border-green-300",
+          ].join(" ")}
+          title={
+            saving
+              ? "Guardando…"
+              : hasPendingChanges
+              ? "Tienes cambios sin guardar"
+              : isDraft
+              ? "Borrador"
+              : "Sin cambios pendientes"
+          }
         >
-          <Settings size={18} />
-          <span className="hidden sm:inline">Conexiones</span>
-        </button>
-
-        {/* Vista */}
-        <button
-          onClick={onToggleCanvasActionsPanel}
-          className={`${btnBase} ${
-            isCanvasActionsPanelVisible
-              ? "border-blue-500 bg-blue-100 text-blue-700 ring-2 ring-blue-500/20 shadow-sm"
-              : "border-gray-300 bg-white text-white hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 shadow-sm"
-          }`}
-          title="Configurar vista del canvas"
-        >
-          <Settings size={18} />
-          <span className="hidden sm:inline">Vista</span>
-        </button>
-
-        {/* Exportar PDF */}
-        <button
-          onClick={onExportPdf}
-          className={toggleBtn(false)}
-          title="Exportar reporte de seguridad en PDF"
-        >
-          <Download size={18} />
-          <span className="hidden sm:inline">Exportar</span>
-        </button>
+          <span
+            className={[
+              "inline-block h-2.5 w-2.5 rounded-full",
+              saving
+                ? "bg-blue-500 animate-pulse"
+                : hasPendingChanges
+                ? "bg-amber-500"
+                : isDraft
+                ? "bg-amber-500"
+                : "bg-green-500",
+            ].join(" ")}
+          />
+          {saving
+            ? "Guardando…"
+            : hasPendingChanges
+            ? "Cambios sin guardar"
+            : isDraft
+            ? "Borrador"
+            : "Sin cambios"}
+        </div>
 
         {/* Separador */}
-        <div className="h-6 w-px bg-gray-300 mx-2"></div>
+        <div className="h-6 w-px bg-gray-300 mx-2" />
 
-        {/* Guardar/Crear */}
+        {/* Guardar / Crear */}
         <button
           onClick={onSave}
           disabled={!!saving}
-          className={`${btnBase} ${
+          className={[
+            btnBase,
             saving
-              ? "border-blue-300 bg-blue-200 text-blue-700 cursor-wait shadow-sm"
-              : "border-blue-600 bg-blue-600 text-white hover:bg-blue-700 hover:border-blue-700 active:bg-blue-800 shadow-md hover:shadow-lg"
-          }`}
+              ? "border border-blue-300 bg-blue-200 text-blue-700 cursor-wait shadow-sm"
+              : hasPendingChanges
+              ? "border border-blue-600 bg-blue-600 text-white hover:bg-blue-700 hover:border-blue-700 active:bg-blue-800 shadow-md hover:shadow-lg"
+              : "border border-gray-300 bg-white text-gray-700 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 shadow-sm",
+          ].join(" ")}
           title={isDraft ? "Crear documento" : "Guardar documento"}
         >
           {saving ? (
-            <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
           ) : isDraft ? (
             <FilePlus size={18} />
           ) : (
@@ -133,20 +133,31 @@ export default function Toolbar({
           </span>
         </button>
 
-        {/* Actualizar plantilla */}
+        {/* Exportar PDF */}
+        <button
+          onClick={onExportPdf}
+          className={[btnBase, ghostBtn].join(" ")}
+          title="Exportar reporte de seguridad en PDF"
+        >
+          <Download size={18} />
+          <span className="hidden sm:inline">Exportar</span>
+        </button>
+
+        {/* Actualizar plantilla (modo plantilla) */}
         {canUpdateTemplate && (
           <button
             onClick={onUpdateTemplate}
             disabled={!!updatingTemplate}
-            className={`${btnBase} ${
+            className={[
+              btnBase,
               updatingTemplate
-                ? "border-purple-300 bg-purple-200 text-purple-700 cursor-wait shadow-sm"
-                : "border-purple-600 bg-purple-600 text-white hover:bg-purple-700 hover:border-purple-700 active:bg-purple-800 shadow-md hover:shadow-lg"
-            }`}
+                ? "border border-purple-300 bg-purple-200 text-purple-700 cursor-wait shadow-sm"
+                : "border border-purple-600 bg-purple-600 text-white hover:bg-purple-700 hover:border-purple-700 active:bg-purple-800 shadow-md hover:shadow-lg",
+            ].join(" ")}
             title="Actualizar plantilla del catálogo"
           >
             {updatingTemplate ? (
-              <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
             ) : (
               <RefreshCw size={18} />
             )}
@@ -154,14 +165,42 @@ export default function Toolbar({
           </button>
         )}
 
-        {/* Info de estado */}
-        <div className="ml-2 flex items-center">
-          <div className="text-xs text-gray-600 px-3 py-1.5 rounded-lg border border-gray-200 bg-white/80 backdrop-blur-sm hidden md:block">
-            {saving && "Guardando..."}
-            {updatingTemplate && "Actualizando..."}
-            {!saving && !updatingTemplate && "Listo"}
-          </div>
-        </div>
+        {/* Compartir */}
+        <button
+          onClick={onOpenShare}
+          className={[btnBase, ghostBtn].join(" ")}
+          aria-label="Compartir"
+          title="Compartir"
+        >
+          <Share2 size={20} />
+        </button>
+
+        {/* Información */}
+        <button
+          onClick={onOpenInfo}
+          className={[btnBase, ghostBtn].join(" ")}
+          aria-label="Información"
+          title="Información relevante"
+        >
+          <Info size={20} />
+        </button>
+
+        {/* Vista / Panel de acciones del canvas */}
+        <button
+          onClick={() => {
+            onToggleCanvasActionsPanel?.();
+            onToggleTools?.();
+          }}
+          className={[
+            btnBase,
+            isCanvasActionsPanelVisible
+              ? "border border-blue-500 bg-blue-100 text-blue-700 ring-2 ring-blue-500/20 shadow-sm"
+              : ghostBtn,
+          ].join(" ")}
+          title="Configurar vista del canvas"
+        >
+          <Eye size={20} />
+        </button>
       </div>
     </header>
   );

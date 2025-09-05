@@ -140,23 +140,33 @@ export const useSheetStore = create<State & Actions>((set, get) => ({
 
 /* ============ HELPERS DE API (operaciones fuera del editor) ============ */
 
+// src/hooks/useSheets.ts
 export function useSheets() {
   const api = useApi();
 
   return {
-    /** Lista hojas por documento */
+    /** Lista hojas por documento (si falla, devuelve []) */
     async listByDocument(documentId: string): Promise<SheetEntity[]> {
-      const { data } = await api.get(`/documents/${documentId}/sheets`);
-      return (data as any[]).map(normalizeSheet);
+      try {
+        const { data } = await api.get(`/documents/${documentId}/sheets`);
+        const arr = Array.isArray(data) ? data : data?.items ?? [];
+        return arr.map(normalizeSheet);
+      } catch (e: any) {
+        const s = e?.response?.status;
+        if (s === 204 || s === 404 || s === 500) {
+          console.warn("[useSheets] listByDocument devolvió", s, "→ []");
+          return [];
+        }
+        console.error("[useSheets] listByDocument error:", e);
+        throw e;
+      }
     },
 
-    /** Obtiene una hoja por id */
     async get(sheetId: string): Promise<SheetEntity> {
       const { data } = await api.get(`/documents/sheets/${sheetId}`);
       return normalizeSheet(data);
     },
 
-    /** Crea una hoja en un documento */
     async create(
       documentId: string,
       dto: CreateSheetRequest
@@ -165,7 +175,6 @@ export function useSheets() {
       return normalizeSheet(data);
     },
 
-    /** Actualiza una hoja */
     async update(
       sheetId: string,
       dto: UpdateSheetRequest
@@ -174,12 +183,10 @@ export function useSheets() {
       return normalizeSheet(data);
     },
 
-    /** Elimina una hoja */
     async remove(sheetId: string): Promise<void> {
       await api.delete(`/documents/sheets/${sheetId}`);
     },
 
-    /** Reordenar hojas de un documento */
     async reorder(documentId: string, sheetIds: string[]): Promise<void> {
       await api.post(`/documents/${documentId}/sheets/reorder`, { sheetIds });
     },

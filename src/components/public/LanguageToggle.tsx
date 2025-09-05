@@ -13,7 +13,7 @@ export default function LanguageToggle() {
       onClick={toggle}
       aria-label={t("lang.switch")}
       title={t("lang.switch")}
-      className="rounded-md border px-2 py-1 text-sm"
+      className="rounded-md border px-2 py-1 text-sm text-white"
     >
       {isES ? "EN" : "ES"}
     </button>

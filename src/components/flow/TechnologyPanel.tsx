@@ -221,7 +221,7 @@ export const TechnologyPanel: React.FC<SidebarProps> = ({
               {/* Cabecera */}
               <button
                 onClick={() => toggleZone(z.id)}
-                className="w-full flex items-cente gap-3 px-4 py-3 hover:bg-gray-50 transition bg-gradient-to-r "
+                className="w-full flex items-cente gap-3 px-4 py-3 hover:bg-gray-50 transition bg-gradient-to-r"
                 // para cambiar los colores arriba, toca con el bg-gradient-to-r porque como es
                 // un button tiene estilos globales del css negros por defecto,
                 // si le quieren cambiar el a todo el button es from-(color)-(escala) to-(color)-escala

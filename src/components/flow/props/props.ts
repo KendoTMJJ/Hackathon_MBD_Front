@@ -1,19 +1,18 @@
-// props/props.ts
 import type { EdgePreset } from "../edges/EdgeStylePopover";
 
-// 👉 export nombrado (NO default)
 export interface CanvasActionsPanelProps {
   open: boolean;
   onClose: () => void;
-  sidebarOpen: boolean;
+  // sidebarOpen: boolean;
   toolbarOpen: boolean;
-  onToggleSidebar: () => void;
-  onToggleToolbar: () => void;
-  onOpenShare: () => void;
-  onOpenInfo: () => void;
+  // onToggleSidebar: () => void;
+  // onToggleToolbar: () => void;
+
+  onShowTools: () => void;
+
+  onToggleTools: () => void;
 }
 
-// 👉 export default (para Toolbar)
 export default interface ViewProps {
   onBack?: () => void;
 
@@ -27,15 +26,22 @@ export default interface ViewProps {
 
   isDraft?: boolean;
 
+  hasPendingChanges?: boolean;
+
   isEdgeStyleBarVisible?: boolean;
   onToggleEdgeStyleBar?: () => void;
 
   isCanvasActionsPanelVisible?: boolean;
   onToggleCanvasActionsPanel?: () => void;
 
-  // opcionales, por si querés propagar el preset desde Toolbar
   edgeStyle?: EdgePreset;
   onEdgeStyleChange?: (style: EdgePreset) => void;
+
+  toolbarOpen: boolean;
+  onToggleTools: () => void;
+
+  onOpenShare: () => void;
+  onOpenInfo: () => void;
 
   onExportPdf?: () => void; // 👈 NUEVO
 }

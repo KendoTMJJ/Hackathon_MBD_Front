@@ -235,7 +235,7 @@ export default function HomePage() {
 
                 <section className="mb-8">
                   <h2 className="text-xl font-semibold mb-4 text-gray-900">
-                    Tipos de diagramas
+                    Zonas Clave
                   </h2>
                   <div className="flex flex-wrap gap-3">
                     {(
@@ -244,6 +244,7 @@ export default function HomePage() {
                         "mindMap",
                         "flowchart",
                         "conceptMap",
+                        "ot",
                       ] as const
                     ).map((key) => (
                       <div

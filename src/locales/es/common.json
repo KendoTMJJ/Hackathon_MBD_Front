@@ -17,10 +17,11 @@
     "subtitle": "Crea diagramas claros y colabora en tiempo real."
   },
   "sections": {
-    "orgChart": "Organigrama",
-    "mindMap": "Mapa mental",
-    "flowchart": "Diagrama de flujo",
-    "conceptMap": "Mapa conceptual"
+    "orgChart": "Dmz",
+    "mindMap": "Lan",
+    "flowchart": "Centro de datos",
+    "conceptMap": "Nube",
+    "ot": "Ot"
   },
   "actions": {
     "connections": "Conexiones",

@@ -1,9 +1,9 @@
-import { useWebSocket } from '../../context/WebSocketContext';
+import { useWebSocket } from "../../context/WebSocketContext";
 
 export function UserPresence() {
   const { users, currentUser, isConnected } = useWebSocket();
 
-  const otherUsers = users.filter(user => user.id !== currentUser?.id);
+  const otherUsers = users.filter((user) => user.id !== currentUser?.id);
 
   if (!isConnected || otherUsers.length === 0) {
     return null;
@@ -28,11 +28,12 @@ export function UserPresence() {
           </div>
         )}
       </div>
-      
+
       <div className="flex items-center gap-1 rounded-full bg-green-600/20 border border-green-500/30 px-2 py-1">
         <div className="h-2 w-2 rounded-full bg-green-400"></div>
         <span className="text-xs text-green-300">
-          {otherUsers.length} usuario{otherUsers.length !== 1 ? 's' : ''} editando
+          {otherUsers.length} usuario{otherUsers.length !== 1 ? "s" : ""}{" "}
+          editando
         </span>
       </div>
     </div>
@@ -42,8 +43,8 @@ export function UserPresence() {
 export function UserCursors() {
   const { users, currentUser } = useWebSocket();
 
-  const otherUsers = users.filter(user => 
-    user.id !== currentUser?.id && user.cursor
+  const otherUsers = users.filter(
+    (user) => user.id !== currentUser?.id && user.cursor
   );
 
   return (
@@ -55,13 +56,10 @@ export function UserCursors() {
           style={{
             left: user.cursor!.x,
             top: user.cursor!.y,
-            transform: 'translate(-2px, -2px)',
+            transform: "translate(-2px, -2px)",
           }}
         >
-          <div
-            className="relative"
-            style={{ color: user.color }}
-          >
+          <div className="relative" style={{ color: user.color }}>
             <svg
               width="20"
               height="20"

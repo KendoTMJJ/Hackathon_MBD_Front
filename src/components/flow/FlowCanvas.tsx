@@ -17,6 +17,7 @@ import {
   MiniMap,
   Controls,
   type ReactFlowInstance,
+  Panel,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
@@ -62,6 +63,7 @@ import {
   fetchTechRequirements,
   type RequirementsMap,
 } from "../../hooks/useTecnologies";
+import { Brush } from "lucide-react";
 
 const initialNodes: Node[] = [];
 const initialEdges: Edge[] = [];
@@ -73,12 +75,13 @@ const defaultEdgeOptions: DefaultEdgeOptions = {
 };
 const onNodeDrag: OnNodeDrag = () => {};
 const TOOLBAR_H = 60;
-
 const allNodeTypes = { ...nodeTypes, ...zoneTypes };
 
 export default function FlowCanvas() {
   const nav = useNavigate();
   const [selectedTech, setSelectedTech] = useState<TechLike | null>(null);
+  const [hasPendingChanges, setHasPendingChanges] = useState(false);
+  const lastSavedRef = useRef<string>(""); // snapshot del último guardado
 
   const miniMapNodeColor = useCallback((n: Node) => {
     if (n.type === "zone") {
@@ -122,8 +125,20 @@ export default function FlowCanvas() {
   }, [api, setApiReady]);
 
   useEffect(() => {
-    if (documentId) load(documentId);
-  }, [documentId, load]);
+    if (!documentId) return;
+    // cuando el documento del store cambia (p.ej. por load)
+    const currentDoc = useDocumentStore.getState().doc;
+    if (currentDoc) {
+      const cleanSnapshot = JSON.stringify({
+        title: currentDoc.title ?? "",
+        nodes: (currentDoc.data?.nodes as Node[]) ?? [],
+        edges: (currentDoc.data?.edges as Edge[]) ?? [],
+      });
+      lastSavedRef.current = cleanSnapshot;
+      setHasPendingChanges(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [documentId, doc?.version]);
 
   const storeNodes = useMemo<Node[]>(
     () => (doc?.data?.nodes as Node[]) ?? [],
@@ -166,12 +181,6 @@ export default function FlowCanvas() {
   const [hasInteracted, setHasInteracted] = useState(false);
 
   const [rf, setRf] = useState<ReactFlowInstance | null>(null);
-  // cerca de otros hooks:
-  // const {
-  //   requirements,
-  //   loading: reqLoading,
-  //   reload: reloadRequirements,
-  // } = useRequirements(true);
 
   // Track if user has interacted with the viewport manually
   const hasUserInteracted = useRef(false);
@@ -228,6 +237,24 @@ export default function FlowCanvas() {
     })();
   }, [documentId, draftTemplateId, draftTitleQ, doc?.title]);
 
+  // ⬇️ añade este efecto
+  useEffect(() => {
+    if (!documentId) return;
+
+    const currentSnapshot = JSON.stringify({
+      title, // usamos el título local (ya sincronizado con el store en modo doc)
+      nodes: storeNodes,
+      edges: storeEdges,
+    });
+
+    // si nunca se ha inicializado (primera carga), inicialízalo
+    if (!lastSavedRef.current) {
+      lastSavedRef.current = currentSnapshot;
+    }
+
+    setHasPendingChanges(currentSnapshot !== lastSavedRef.current);
+  }, [documentId, title, storeNodes, storeEdges]);
+
   // Handle sheet changes with improved fitView logic
   useEffect(() => {
     if (!activeSheet) {
@@ -275,13 +302,12 @@ export default function FlowCanvas() {
   }, [activeSheet, rf]);
 
   // 4) UI
-  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [toolbarOpen, setToolbarOpen] = useState(true);
 
   // 5) Autosave solo en persistido
-  const debouncedSave = useDebouncedCallback(() => {
-    if (documentId) save();
-  }, 1000);
+  // const debouncedSave = useDebouncedCallback(() => {
+  //   if (documentId) save();
+  // }, 1000);
 
   const persistSheet = useDebouncedCallback(
     async (nodes: Node[], edges: Edge[]) => {
@@ -320,7 +346,6 @@ export default function FlowCanvas() {
         const patch = { nodes: nextNodes };
         applyLocalPatch(patch);
         sendChange(patch);
-        debouncedSave();
       } else {
         setDraftNodes((nds) => applyNodeChanges(changes, nds));
       }
@@ -329,7 +354,6 @@ export default function FlowCanvas() {
       documentId,
       applyLocalPatch,
       sendChange,
-      debouncedSave,
       activeSheet,
       sheetEdges,
       persistSheet,
@@ -354,7 +378,6 @@ export default function FlowCanvas() {
         const patch = { edges: nextEdges };
         applyLocalPatch(patch);
         sendChange(patch);
-        debouncedSave();
       } else {
         setDraftEdges((eds) => applyEdgeChanges(changes, eds));
       }
@@ -363,7 +386,6 @@ export default function FlowCanvas() {
       documentId,
       applyLocalPatch,
       sendChange,
-      debouncedSave,
       activeSheet,
       sheetNodes,
       persistSheet,
@@ -393,7 +415,6 @@ export default function FlowCanvas() {
         const patch = { edges: nextEdges };
         applyLocalPatch(patch);
         sendChange(patch);
-        debouncedSave();
       } else {
         setDraftEdges((eds) => addEdge(payload, eds));
       }
@@ -405,7 +426,6 @@ export default function FlowCanvas() {
       persistSheet,
       applyLocalPatch,
       sendChange,
-      debouncedSave,
       edgePreset,
     ]
   );
@@ -417,28 +437,26 @@ export default function FlowCanvas() {
         const current = useDocumentStore.getState().doc;
         if (current) {
           setDoc({ ...current, title: v });
-          debouncedSave();
         }
       }
     },
-    [documentId, setDoc, debouncedSave]
+    [documentId, setDoc]
   );
 
-  // Guardar al cerrar pestaña/cambiar visibilidad (solo persistido)
   useEffect(() => {
     if (!documentId) return;
-    const saveNow = () => useDocumentStore.getState().save();
-    const onBeforeUnload = () => saveNow();
-    const onVisibility = () => {
-      if (document.visibilityState === "hidden") saveNow();
+
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      // usa tu estado local de cambios pendientes
+      if (hasPendingChanges) {
+        e.preventDefault();
+        e.returnValue = ""; // Chrome/Edge requieren asignar algo
+      }
     };
+
     window.addEventListener("beforeunload", onBeforeUnload);
-    document.addEventListener("visibilitychange", onVisibility);
-    return () => {
-      window.removeEventListener("beforeunload", onBeforeUnload);
-      document.removeEventListener("visibilitychange", onVisibility);
-    };
-  }, [documentId]);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [documentId, hasPendingChanges]);
 
   // 7) Guardar / Crear (Documents) usando hooks
   const [isSaving, setIsSaving] = useState(false);
@@ -485,6 +503,16 @@ export default function FlowCanvas() {
       setIsSaving(true);
       try {
         await save();
+
+        // snapshot igual a lo que quedó en el store tras guardar
+        const currentDoc = useDocumentStore.getState().doc;
+        const cleanSnapshot = JSON.stringify({
+          title: currentDoc?.title ?? title,
+          nodes: (currentDoc?.data?.nodes as Node[]) ?? [],
+          edges: (currentDoc?.data?.edges as Edge[]) ?? [],
+        });
+        lastSavedRef.current = cleanSnapshot;
+        setHasPendingChanges(false);
       } finally {
         setIsSaving(false);
       }
@@ -700,7 +728,6 @@ export default function FlowCanvas() {
               const patch = { nodes: nextNodes };
               applyLocalPatch(patch);
               sendChange(patch);
-              debouncedSave();
             } else {
               setDraftNodes((nds) =>
                 nds.map((n) =>
@@ -722,7 +749,6 @@ export default function FlowCanvas() {
       documentId,
       applyLocalPatch,
       sendChange,
-      debouncedSave,
       persistSheet,
     ]
   );
@@ -734,7 +760,7 @@ export default function FlowCanvas() {
       if (!tpl) return;
 
       // Centro visual (aprox.) + offset incremental
-      const baseX = sidebarOpen
+      const baseX = toolbarOpen
         ? 320 + (window.innerWidth - 320) / 2
         : window.innerWidth / 2;
       const baseY = window.innerHeight / 2;
@@ -764,20 +790,18 @@ export default function FlowCanvas() {
         const patch = { nodes: nextNodes };
         applyLocalPatch(patch);
         sendChange(patch);
-        debouncedSave();
       } else {
         setDraftNodes((nds) => nds.concat(newNode));
       }
     },
     [
       rf,
-      sidebarOpen,
+      toolbarOpen,
       activeSheet,
       sheetEdges,
       documentId,
       applyLocalPatch,
       sendChange,
-      debouncedSave,
       persistSheet,
       setSheetNodes,
       setDraftNodes,
@@ -866,7 +890,6 @@ export default function FlowCanvas() {
         const patch = { nodes: nextNodes };
         applyLocalPatch(patch);
         sendChange(patch);
-        debouncedSave();
       } else {
         setDraftNodes((nds) => nds.concat(newNode!));
       }
@@ -880,7 +903,6 @@ export default function FlowCanvas() {
       draftNodes,
       applyLocalPatch,
       sendChange,
-      debouncedSave,
       persistSheet,
       getSubZoneTemplateById,
       createZoneNodeFromTemplate,
@@ -944,7 +966,6 @@ export default function FlowCanvas() {
         const patch = { nodes: [...currentNodes, techNode] };
         applyLocalPatch(patch);
         sendChange(patch);
-        debouncedSave();
       } else {
         setDraftNodes((nds) => nds.concat(techNode));
       }
@@ -960,7 +981,6 @@ export default function FlowCanvas() {
       persistSheet,
       applyLocalPatch,
       sendChange,
-      debouncedSave,
     ]
   );
 
@@ -968,35 +988,58 @@ export default function FlowCanvas() {
   const [isCanvasActionsPanelVisible, setIsCanvasActionsPanelVisible] =
     useState(false);
 
-  const subzonesInDiagram = useMemo(
-    () =>
-      (displayNodes ?? [])
-        .filter((n) => n.type === "zone")
-        .map((n) => String(n?.data?.id))
-        .filter(Boolean),
-    [displayNodes]
-  );
+  // const subzonesInDiagram = useMemo(
+  //   () =>
+  //     (displayNodes ?? [])
+  //       .filter((n) => n.type === "zone")
+  //       .map((n) => String(n?.data?.id))
+  //       .filter(Boolean),
+  //   [displayNodes]
+  // );
 
   const [reqs, setReqs] = useState<RequirementsMap | null>(null);
 
+  const lastKeyRef = useRef<string>("");
+
   useEffect(() => {
-    // Si no hay subzonas aún, no llames
-    if (subzonesInDiagram.length === 0) {
+    const ids = (displayNodes ?? [])
+      .filter((n) => n.type === "zone")
+      .map((n) => String(n?.data?.id))
+      .filter(Boolean);
+
+    const key = Array.from(new Set(ids)).sort().join("|");
+
+    if (key === lastKeyRef.current) return; // ❌ no cambió el contenido
+
+    lastKeyRef.current = key;
+
+    if (!key) {
       setReqs(null);
       return;
     }
-    fetchTechRequirements({ subzones: subzonesInDiagram })
-      .then(setReqs)
+
+    let cancelled = false;
+    fetchTechRequirements({ subzones: key.split("|") })
+      .then((r) => !cancelled && setReqs(r))
       .catch((e) => {
         console.error("Error cargando requirements:", e);
-        setReqs({});
+        if (!cancelled) setReqs({});
       });
-  }, [subzonesInDiagram]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [displayNodes]); // puede depender de displayNodes sin problema
 
   const handleExportPdf = useCallback(() => {
     if (!reqs) return; // opcional: muestra toast de "cargando"
     exportGapPdf(displayNodes, reqs);
   }, [displayNodes, reqs]);
+
+  const handleShowTools = () => {
+    setToolbarOpen(true);
+    setIsCanvasActionsPanelVisible(false); // Asegura que el panel se cierre
+  };
 
   return (
     <div className="w-screen h-[100dvh] overflow-hidden bg-slate-50">
@@ -1037,13 +1080,18 @@ export default function FlowCanvas() {
               onUpdateTemplate={handleUpdateTemplate}
               updatingTemplate={isUpdatingTpl}
               isDraft={!documentId}
+              hasPendingChanges={documentId ? hasPendingChanges : false}
               isEdgeStyleBarVisible={isEdgeStyleBarVisible}
               onToggleEdgeStyleBar={() => setIsEdgeStyleBarVisible((v) => !v)}
               isCanvasActionsPanelVisible={isCanvasActionsPanelVisible}
+              toolbarOpen={toolbarOpen}
+              onToggleTools={() => setToolbarOpen((v) => !v)}
               onToggleCanvasActionsPanel={() =>
                 setIsCanvasActionsPanelVisible((v) => !v)
               }
               onExportPdf={handleExportPdf}
+              onOpenShare={() => setShareModalOpen(true)}
+              onOpenInfo={() => setInfoModalOpen(true)}
             />
           )}
         </header>
@@ -1051,8 +1099,8 @@ export default function FlowCanvas() {
         <div className="flex min-h-0 flex-1">
           {/* Sidebar - Ahora con altura completa y scroll interno */}
           <aside
-            className={`shrink-0 border-r border-slate-200 bg-white/90 backdrop-blur transition-[width] duration-200 overflow-hidden ${
-              sidebarOpen ? "w-80" : "w-0"
+            className={`shrink-0 border-r border-slate-200 bg-white/90 transition-[width] duration-200 overflow-hidden ${
+              toolbarOpen ? "w-85" : "w-0"
             }`}
           >
             <div className="h-full flex flex-col">
@@ -1122,22 +1170,37 @@ export default function FlowCanvas() {
                   style={{ backgroundColor: "#ffffff" }}
                 />
 
-                <TitlePanel
-                  title={title}
-                  onChangeTitle={handleTitleInput}
-                  isDraft={!documentId}
-                />
+                <Panel position="top-left" className="pointer-events-auto">
+                  {/* Contenedor flexible: separa automáticamente con gap */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* Bloque 1: Título (presentacional) */}
+                    <TitlePanel
+                      title={title}
+                      onChangeTitle={handleTitleInput}
+                      isDraft={!documentId}
+                    />
 
-                {/* Acciones de UI locales (solo toggles) */}
+                    <button
+                      onClick={() => setIsEdgeStyleBarVisible((v) => !v)}
+                      title="Configurar estilos de conexión"
+                      className={[
+                        "flex items-center gap-1 rounded px-2 py-1.5 text-xs transition-colors",
+                        isEdgeStyleBarVisible
+                          ? "bg-blue-100 text-blue-700 ring-2 ring-blue-500/20"
+                          : "text-white/90 hover:bg-white/10",
+                      ].join(" ")}
+                    >
+                      <Brush size={27} />
+                    </button>
+                  </div>
+                </Panel>
+
                 <CanvasActionsPanel
                   open={isCanvasActionsPanelVisible}
                   onClose={() => setIsCanvasActionsPanelVisible(false)}
-                  sidebarOpen={sidebarOpen}
                   toolbarOpen={toolbarOpen}
-                  onToggleSidebar={() => setSidebarOpen((v) => !v)}
-                  onToggleToolbar={() => setToolbarOpen((v) => !v)}
-                  onOpenShare={() => setShareModalOpen(true)}
-                  onOpenInfo={() => setInfoModalOpen(true)}
+                  onToggleTools={() => setToolbarOpen((v) => !v)}
+                  onShowTools={handleShowTools} // Nueva función para mostrar herramientas
                 />
               </ReactFlow>
 
