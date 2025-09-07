@@ -36,6 +36,10 @@ h1 {
   line-height: 1.2;
 }
 
+.cursor-crosshair {
+  cursor: crosshair;
+}
+
 button {
   border-radius: 8px;
   border: 1px solid transparent;
@@ -47,6 +51,7 @@ button {
   cursor: pointer;
   transition: border-color 0.25s;
 }
+
 button:hover {
   border-color: #646cff;
 }

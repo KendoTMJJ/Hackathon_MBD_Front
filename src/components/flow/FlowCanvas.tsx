@@ -63,7 +63,8 @@ import {
   fetchTechRequirements,
   type RequirementsMap,
 } from "../../hooks/useTecnologies";
-import { Brush } from "lucide-react";
+import { SWITCH_TECH, type SwitchPayload } from "./nodes/SwitchNode";
+import CanvasHelpButtons from "./CanvasHelpButtons";
 
 const initialNodes: Node[] = [];
 const initialEdges: Edge[] = [];
@@ -81,16 +82,23 @@ export default function FlowCanvas() {
   const nav = useNavigate();
   const [selectedTech, setSelectedTech] = useState<TechLike | null>(null);
   const [hasPendingChanges, setHasPendingChanges] = useState(false);
-  const lastSavedRef = useRef<string>(""); // snapshot del último guardado
+  const lastSavedRef = useRef<string>("");
+
+  type Snapshot = { nodes: Node[]; edges: Edge[] };
+  const [past, setPast] = useState<Snapshot[]>([]);
+  const [future, setFuture] = useState<Snapshot[]>([]);
+  const lastSnapRef = useRef<string>("");
+
+  // --- Edge selection (para editar estilos existentes) ---
+  const [selectedEdgeIds, setSelectedEdgeIds] = useState<string[]>([]);
+  const lastSelectionRef = useRef<string[]>([]);
+  const sameIds = (a: string[], b: string[]) =>
+    a.length === b.length && a.every((v, i) => v === b[i]);
 
   const miniMapNodeColor = useCallback((n: Node) => {
-    if (n.type === "zone") {
-      return (n.data as any)?.color ?? "#7c7c86";
-    }
+    if (n.type === "zone") return (n.data as any)?.color ?? "#7c7c86";
     return "#94a3b8";
   }, []);
-
-  // En claro, usa trazos oscuros y suaves
   const miniMapStrokeColor = useCallback((n: Node) => {
     return n.type === "zone" ? "#00000055" : "#00000033";
   }, []);
@@ -108,7 +116,7 @@ export default function FlowCanvas() {
   const { isAuthenticated, loginWithRedirect } = useAuth0();
 
   // Hooks de API
-  const api = useApi(); // para inyectar en el store
+  const api = useApi();
   const documentsApi = useDocumentsApi();
   const templatesApi = useTemplates();
   const projectsApi = useProject();
@@ -119,14 +127,17 @@ export default function FlowCanvas() {
   const { sendChange: collabSendChange } = useCollab(documentId);
   const sendChange = documentId ? collabSendChange : (_p: any) => {};
 
-  // Inyecta axios real al store (necesario para save/load internos del store)
+  // Inyecta axios real al store
   useEffect(() => {
     setApiReady(() => api);
   }, [api, setApiReady]);
 
   useEffect(() => {
+    if (documentId) load(documentId);
+  }, [documentId, load]);
+
+  useEffect(() => {
     if (!documentId) return;
-    // cuando el documento del store cambia (p.ej. por load)
     const currentDoc = useDocumentStore.getState().doc;
     if (currentDoc) {
       const cleanSnapshot = JSON.stringify({
@@ -137,7 +148,6 @@ export default function FlowCanvas() {
       lastSavedRef.current = cleanSnapshot;
       setHasPendingChanges(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [documentId, doc?.version]);
 
   const storeNodes = useMemo<Node[]>(
@@ -165,7 +175,6 @@ export default function FlowCanvas() {
   const [sheets, setSheets] = useState<
     Record<string, { nodes: Node[]; edges: Edge[] }>
   >({});
-
   const sheetsRef = useRef(sheets);
   useEffect(() => {
     sheetsRef.current = sheets;
@@ -182,18 +191,16 @@ export default function FlowCanvas() {
 
   const [rf, setRf] = useState<ReactFlowInstance | null>(null);
 
-  // Track if user has interacted with the viewport manually
+  // Track viewport interaction
   const hasUserInteracted = useRef(false);
   const lastInteractionTime = useRef(0);
-
-  // Handler para detectar interacción del usuario
   const handleViewportChange = useCallback(() => {
     hasUserInteracted.current = true;
     lastInteractionTime.current = Date.now();
     setHasInteracted(true);
   }, []);
 
-  // cargar plantilla (borrador) con useTemplates()
+  // cargar plantilla (borrador)
   useEffect(() => {
     if (documentId) {
       setTitle(doc?.title ?? "");
@@ -220,11 +227,8 @@ export default function FlowCanvas() {
 
         setDraftNodes(newNodes);
         setDraftEdges(newEdges);
-
-        // Reset interaction flag when loading template to allow auto-fit
         setHasInteracted(false);
 
-        // Forzar un nuevo renderizado y ajuste de vista después de cargar la plantilla
         setTimeout(() => {
           if (rf && newNodes.length > 0) {
             rf.fitView({ padding: 0.2, duration: 300 });
@@ -237,32 +241,25 @@ export default function FlowCanvas() {
     })();
   }, [documentId, draftTemplateId, draftTitleQ, doc?.title]);
 
-  // ⬇️ añade este efecto
+  // detectar cambios pendientes
   useEffect(() => {
     if (!documentId) return;
-
     const currentSnapshot = JSON.stringify({
-      title, // usamos el título local (ya sincronizado con el store en modo doc)
+      title,
       nodes: storeNodes,
       edges: storeEdges,
     });
-
-    // si nunca se ha inicializado (primera carga), inicialízalo
-    if (!lastSavedRef.current) {
-      lastSavedRef.current = currentSnapshot;
-    }
-
+    if (!lastSavedRef.current) lastSavedRef.current = currentSnapshot;
     setHasPendingChanges(currentSnapshot !== lastSavedRef.current);
   }, [documentId, title, storeNodes, storeEdges]);
 
-  // Handle sheet changes with improved fitView logic
+  // cambio de hoja
   useEffect(() => {
     if (!activeSheet) {
       setSheetNodes([]);
       setSheetEdges([]);
       return;
     }
-
     setIsChangingSheet(true);
     try {
       const cached = sheetsRef.current[activeSheet.id];
@@ -278,14 +275,11 @@ export default function FlowCanvas() {
           : [];
         setSheetNodes(newNodes);
         setSheetEdges(newEdges);
-        // guarda en caché para futuros switches
         setSheets((prev) => ({
           ...prev,
           [activeSheet.id]: { nodes: newNodes, edges: newEdges },
         }));
       }
-
-      // Solo auto-fit si el usuario no interactuó recientemente
       const timeSinceInteraction = Date.now() - lastInteractionTime.current;
       if (!hasUserInteracted.current || timeSinceInteraction > 3000) {
         setTimeout(() => rf?.fitView(fitViewOptions), 100);
@@ -298,29 +292,24 @@ export default function FlowCanvas() {
     } finally {
       setIsChangingSheet(false);
     }
-    // 🔴 Importante: NO dependemos de `sheets` aquí para evitar re-fit en cada autosave
   }, [activeSheet, rf]);
 
   // 4) UI
   const [toolbarOpen, setToolbarOpen] = useState(true);
 
-  // 5) Autosave solo en persistido
-  // const debouncedSave = useDebouncedCallback(() => {
-  //   if (documentId) save();
-  // }, 1000);
+  // 5) Autosave
+  const debouncedSave = useDebouncedCallback(() => {
+    if (documentId) save();
+  }, 1000);
 
   const persistSheet = useDebouncedCallback(
     async (nodes: Node[], edges: Edge[]) => {
       if (!activeSheet?.id) return;
-
-      // Update local state immediately for instant UI updates
       setSheets((prev) => ({
         ...prev,
         [activeSheet.id]: { nodes, edges },
       }));
-
       try {
-        // Then persist to database
         await update(activeSheet.id, { data: { nodes, edges } });
       } catch (e) {
         console.error("Error saving sheet:", e);
@@ -332,7 +321,7 @@ export default function FlowCanvas() {
   const onNodesChange: OnNodesChange = useCallback(
     (changes) => {
       if (isChangingSheet) return;
-
+      pushHistory();
       if (activeSheet) {
         setSheetNodes((nds) => {
           const next = applyNodeChanges(changes, nds);
@@ -346,6 +335,7 @@ export default function FlowCanvas() {
         const patch = { nodes: nextNodes };
         applyLocalPatch(patch);
         sendChange(patch);
+        debouncedSave();
       } else {
         setDraftNodes((nds) => applyNodeChanges(changes, nds));
       }
@@ -358,13 +348,73 @@ export default function FlowCanvas() {
       sheetEdges,
       persistSheet,
       isChangingSheet,
+      debouncedSave,
     ]
   );
+
+  // const deleteSelection = useCallback(() => {
+  //   // Tomamos el set actual según el contexto (sheet / doc / draft)
+  //   const nodes = activeSheet
+  //     ? sheetNodes
+  //     : documentId
+  //     ? storeNodes
+  //     : draftNodes;
+  //   const edges = activeSheet
+  //     ? sheetEdges
+  //     : documentId
+  //     ? storeEdges
+  //     : draftEdges;
+
+  //   const selectedNodeIds = nodes.filter((n) => n.selected).map((n) => n.id);
+  //   const selectedEdgeIds = edges.filter((e) => e.selected).map((e) => e.id);
+
+  //   if (!selectedNodeIds.length && !selectedEdgeIds.length) return;
+
+  //   const nextNodes = nodes.filter((n) => !selectedNodeIds.includes(n.id));
+  //   // quita edges seleccionadas y también las conectadas a nodos borrados
+  //   const nextEdges = edges.filter(
+  //     (e) =>
+  //       !selectedEdgeIds.includes(e.id) &&
+  //       !selectedNodeIds.includes(e.source) &&
+  //       !selectedNodeIds.includes(e.target)
+  //   );
+
+  //   if (activeSheet) {
+  //     setSheetNodes(nextNodes);
+  //     setSheetEdges(nextEdges);
+  //     persistSheet(nextNodes, nextEdges);
+  //   } else if (documentId) {
+  //     const patch = { nodes: nextNodes, edges: nextEdges };
+  //     applyLocalPatch(patch);
+  //     sendChange(patch);
+  //     debouncedSave();
+  //   } else {
+  //     setDraftNodes(nextNodes);
+  //     setDraftEdges(nextEdges);
+  //   }
+  // }, [
+  //   activeSheet,
+  //   sheetNodes,
+  //   sheetEdges,
+  //   documentId,
+  //   storeNodes,
+  //   storeEdges,
+  //   draftNodes,
+  //   draftEdges,
+  //   persistSheet,
+  //   applyLocalPatch,
+  //   sendChange,
+  //   debouncedSave,
+  //   setSheetNodes,
+  //   setSheetEdges,
+  //   setDraftNodes,
+  //   setDraftEdges,
+  // ]);
 
   const onEdgesChange: OnEdgesChange = useCallback(
     (changes) => {
       if (isChangingSheet) return;
-
+      pushHistory();
       if (activeSheet) {
         setSheetEdges((eds) => {
           const next = applyEdgeChanges(changes, eds);
@@ -378,6 +428,7 @@ export default function FlowCanvas() {
         const patch = { edges: nextEdges };
         applyLocalPatch(patch);
         sendChange(patch);
+        debouncedSave();
       } else {
         setDraftEdges((eds) => applyEdgeChanges(changes, eds));
       }
@@ -390,6 +441,168 @@ export default function FlowCanvas() {
       sheetNodes,
       persistSheet,
       isChangingSheet,
+      debouncedSave,
+    ]
+  );
+
+  const makeSnapshot = useCallback((): Snapshot => {
+    const nodes = activeSheet
+      ? sheetNodes
+      : documentId
+      ? storeNodes
+      : draftNodes;
+    const edges = activeSheet
+      ? sheetEdges
+      : documentId
+      ? storeEdges
+      : draftEdges;
+    return { nodes, edges };
+  }, [
+    activeSheet,
+    sheetNodes,
+    sheetEdges,
+    documentId,
+    storeNodes,
+    storeEdges,
+    draftNodes,
+    draftEdges,
+  ]);
+
+  const applySnapshot = useCallback(
+    (s: Snapshot) => {
+      if (activeSheet) {
+        setSheetNodes(s.nodes);
+        setSheetEdges(s.edges);
+        persistSheet(s.nodes, s.edges);
+      } else if (documentId) {
+        const patch = { nodes: s.nodes, edges: s.edges };
+        applyLocalPatch(patch);
+        sendChange(patch);
+        debouncedSave();
+      } else {
+        setDraftNodes(s.nodes);
+        setDraftEdges(s.edges);
+      }
+    },
+    [
+      activeSheet,
+      documentId,
+      applyLocalPatch,
+      sendChange,
+      debouncedSave,
+      persistSheet,
+    ]
+  );
+
+  const pushHistory = useCallback(() => {
+    const snap = makeSnapshot();
+    const key = JSON.stringify({ n: snap.nodes, e: snap.edges });
+    if (key === lastSnapRef.current) return; // evita duplicados
+    lastSnapRef.current = key;
+    setPast((p) => [...p, snap]);
+    setFuture([]); // limpiar futuro en cambios nuevos
+  }, [makeSnapshot]);
+
+  const undo = useCallback(() => {
+    setPast((p) => {
+      if (p.length === 0) return p;
+      const prev = p[p.length - 1];
+      const newPast = p.slice(0, -1);
+      // el actual pasa a future
+      setFuture((f) => [makeSnapshot(), ...f]);
+      applySnapshot(prev);
+      lastSnapRef.current = JSON.stringify({ n: prev.nodes, e: prev.edges });
+      return newPast;
+    });
+  }, [applySnapshot, makeSnapshot]);
+
+  const redo = useCallback(() => {
+    setFuture((f) => {
+      if (f.length === 0) return f;
+      const next = f[0];
+      const newFuture = f.slice(1);
+      setPast((p) => [...p, makeSnapshot()]);
+      applySnapshot(next);
+      lastSnapRef.current = JSON.stringify({ n: next.nodes, e: next.edges });
+      return newFuture;
+    });
+  }, [applySnapshot, makeSnapshot]);
+
+  const canUndo = past.length > 0;
+  const canRedo = future.length > 0;
+
+  const [isDeleteMode, setIsDeleteMode] = useState(false);
+  const toggleDeleteMode = useCallback(() => setIsDeleteMode((v) => !v), []);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      // ESC sale del modo borrar
+      if (e.key === "Escape" && isDeleteMode) {
+        setIsDeleteMode(false);
+      }
+      // Undo / Redo
+      const isMac = navigator.platform.toLowerCase().includes("mac");
+      const ctrlOrCmd = isMac ? e.metaKey : e.ctrlKey;
+
+      if (ctrlOrCmd && e.key.toLowerCase() === "z" && !e.shiftKey) {
+        e.preventDefault();
+        if (canUndo) undo();
+      } else if (
+        (ctrlOrCmd && e.key.toLowerCase() === "y") ||
+        (ctrlOrCmd && e.shiftKey && e.key.toLowerCase() === "z")
+      ) {
+        e.preventDefault();
+        if (canRedo) redo();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isDeleteMode, canUndo, canRedo, undo, redo]);
+
+  // Aplica preset a edges seleccionadas
+  const applyPresetToSelectedEdges = useCallback(
+    (preset: EdgePreset) => {
+      if (!selectedEdgeIds.length) return;
+      pushHistory();
+
+      const mapEdge = (e: Edge): Edge =>
+        selectedEdgeIds.includes(e.id)
+          ? {
+              ...e,
+              type: "colorEdge",
+              animated: preset.animated,
+              data: { ...(e.data ?? {}), ...preset },
+            }
+          : e;
+
+      if (activeSheet) {
+        setSheetEdges((eds) => {
+          const next = eds.map(mapEdge);
+          persistSheet(sheetNodes, next);
+          return next;
+        });
+      } else if (documentId) {
+        const current = useDocumentStore.getState().doc;
+        const currentEdges = (current?.data?.edges as Edge[]) ?? [];
+        const nextEdges = currentEdges.map(mapEdge);
+        const patch = { edges: nextEdges };
+        applyLocalPatch(patch);
+        sendChange(patch);
+        debouncedSave();
+      } else {
+        setDraftEdges((eds) => eds.map(mapEdge));
+      }
+    },
+    [
+      selectedEdgeIds,
+      activeSheet,
+      sheetNodes,
+      persistSheet,
+      documentId,
+      applyLocalPatch,
+      sendChange,
+      debouncedSave,
+      pushHistory,
     ]
   );
 
@@ -401,6 +614,8 @@ export default function FlowCanvas() {
         animated: edgePreset.animated,
         data: edgePreset,
       };
+
+      pushHistory();
 
       if (activeSheet) {
         setSheetEdges((eds) => {
@@ -415,6 +630,7 @@ export default function FlowCanvas() {
         const patch = { edges: nextEdges };
         applyLocalPatch(patch);
         sendChange(patch);
+        debouncedSave();
       } else {
         setDraftEdges((eds) => addEdge(payload, eds));
       }
@@ -427,6 +643,8 @@ export default function FlowCanvas() {
       applyLocalPatch,
       sendChange,
       edgePreset,
+      debouncedSave,
+      pushHistory,
     ]
   );
 
@@ -435,52 +653,40 @@ export default function FlowCanvas() {
       setTitle(v);
       if (documentId) {
         const current = useDocumentStore.getState().doc;
-        if (current) {
-          setDoc({ ...current, title: v });
-        }
+        if (current) setDoc({ ...current, title: v });
+        debouncedSave();
       }
     },
-    [documentId, setDoc]
+    [documentId, setDoc, debouncedSave]
   );
 
   useEffect(() => {
     if (!documentId) return;
-
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
-      // usa tu estado local de cambios pendientes
       if (hasPendingChanges) {
         e.preventDefault();
-        e.returnValue = ""; // Chrome/Edge requieren asignar algo
+        e.returnValue = "";
       }
     };
-
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, [documentId, hasPendingChanges]);
 
-  // 7) Guardar / Crear (Documents) usando hooks
+  // Guardar / Crear
   const [isSaving, setIsSaving] = useState(false);
-
-  const { update: _ignoreUpdateTpl } = useTemplates(); // se usa arriba en efectos
+  const { update: _ignoreUpdateTpl } = useTemplates();
 
   const createInitialSheet = useCallback(
     async (docId: string) => {
       try {
         const sheet = await createSheet(docId, {
           name: "Hoja 1",
-          data: {
-            nodes: draftNodes,
-            edges: draftEdges,
-          },
+          data: { nodes: draftNodes, edges: draftEdges },
         });
-
-        // Initialize local state for this sheet
         setSheets((prev) => ({
           ...prev,
           [sheet.id]: { nodes: draftNodes, edges: draftEdges },
         }));
-
-        // Recargar documento para obtener hojas actualizadas
         load(docId);
       } catch (error) {
         console.error("Error creando hoja inicial:", error);
@@ -503,8 +709,6 @@ export default function FlowCanvas() {
       setIsSaving(true);
       try {
         await save();
-
-        // snapshot igual a lo que quedó en el store tras guardar
         const currentDoc = useDocumentStore.getState().doc;
         const cleanSnapshot = JSON.stringify({
           title: currentDoc?.title ?? title,
@@ -535,7 +739,6 @@ export default function FlowCanvas() {
     setIsSaving(true);
     try {
       const payload: DocumentData = { nodes: draftNodes, edges: draftEdges };
-      // crea en blanco y luego actualiza con el contenido del canvas
       const created = await documentsApi.createBlank({
         projectId: projectId!,
         title: title || "Sin título",
@@ -546,9 +749,7 @@ export default function FlowCanvas() {
         data: payload,
         title: title || created.title,
       });
-
       await createInitialSheet(updated.id);
-
       nav(`/Board/${updated.id}`, { replace: true });
     } catch (e) {
       console.error(e);
@@ -571,7 +772,7 @@ export default function FlowCanvas() {
     createInitialSheet,
   ]);
 
-  // 7.b) Actualizar Template usando useTemplates()
+  // Actualizar Template
   const [isUpdatingTpl, setIsUpdatingTpl] = useState(false);
   const showUpdateTemplate = !documentId && !!draftTemplateId;
 
@@ -617,11 +818,10 @@ export default function FlowCanvas() {
     title,
   ]);
 
-  // Mover displayNodes y displayEdges antes de los useEffect que los usan
+  // Nodos/edges visibles según contexto
   const displayNodes = useMemo(() => {
     return activeSheet ? sheetNodes : documentId ? storeNodes : draftNodes;
   }, [activeSheet, sheetNodes, documentId, storeNodes, draftNodes]);
-
   const displayEdges = useMemo(() => {
     return activeSheet ? sheetEdges : documentId ? storeEdges : draftEdges;
   }, [activeSheet, sheetEdges, documentId, storeEdges, draftEdges]);
@@ -633,32 +833,24 @@ export default function FlowCanvas() {
 
   useEffect(() => {
     if (draftTemplateId && !hasInteracted) {
-      // Ajustar la vista solo cuando se carga una plantilla y no hay interacción previa
       const timer = setTimeout(() => {
-        if (rf && displayNodes.length > 0) {
-          rf.fitView(fitViewOptions);
-        }
+        if (rf && displayNodes.length > 0) rf.fitView(fitViewOptions);
       }, 100);
       return () => clearTimeout(timer);
     }
   }, [draftTemplateId, rf, displayNodes, hasInteracted]);
 
-  // Y este efecto específico para hojas
   useEffect(() => {
     if (activeSheet && !hasInteracted) {
-      // Ajustar la vista solo cuando se cambia de hoja y no hay interacción previa
       const timer = setTimeout(() => {
-        if (rf && displayNodes.length > 0) {
-          rf.fitView(fitViewOptions);
-        }
+        if (rf && displayNodes.length > 0) rf.fitView(fitViewOptions);
       }, 100);
       return () => clearTimeout(timer);
     }
   }, [activeSheet, rf, displayNodes, hasInteracted]);
 
-  // ---------- Helpers para nuevas zonas (Cloud + DMZ) ----------
+  // Helpers zonas
   const clickCreateOffsetRef = useRef(0);
-
   type ZoneTpl = {
     id: string;
     name: string;
@@ -671,19 +863,14 @@ export default function FlowCanvas() {
     (templateId: string): ZoneTpl | null => {
       const c = cloudZones.find((z) => z.id === templateId);
       if (c) return { ...c, kind: "cloud" };
-
       const d = dmzZones.find((z) => z.id === templateId);
       if (d) return { ...d, kind: "dmz" };
-
       const l = lanZones.find((z) => z.id === templateId);
       if (l) return { ...l, kind: "lan" };
-
       const dc = datacenterZones.find((z) => z.id === templateId);
       if (dc) return { ...dc, kind: "datacenter" };
-
       const o = otZones.find((z) => z.id === templateId);
       if (o) return { ...o, kind: "ot" };
-
       return null;
     },
     []
@@ -694,7 +881,6 @@ export default function FlowCanvas() {
       if (!tpl) return null;
       const width = 420;
       const height = 160;
-
       return {
         id: `zone-${tpl.id}-${Date.now()}`,
         type: "zone",
@@ -728,6 +914,7 @@ export default function FlowCanvas() {
               const patch = { nodes: nextNodes };
               applyLocalPatch(patch);
               sendChange(patch);
+              debouncedSave();
             } else {
               setDraftNodes((nds) =>
                 nds.map((n) =>
@@ -750,32 +937,30 @@ export default function FlowCanvas() {
       applyLocalPatch,
       sendChange,
       persistSheet,
+      debouncedSave,
     ]
   );
 
-  // 👇 Crear zona al hacer CLIC desde el panel
   const handleCreateZone = useCallback(
     (templateId: string) => {
       const tpl = getSubZoneTemplateById(templateId);
       if (!tpl) return;
 
-      // Centro visual (aprox.) + offset incremental
       const baseX = toolbarOpen
         ? 320 + (window.innerWidth - 320) / 2
         : window.innerWidth / 2;
       const baseY = window.innerHeight / 2;
-
       const base = rf
         ? rf.screenToFlowPosition({ x: baseX, y: baseY })
         : { x: 120, y: 80 };
-
       const off = (clickCreateOffsetRef.current =
         (clickCreateOffsetRef.current + 24) % 120);
-
       const position = { x: base.x + off, y: base.y + off };
 
       const newNode = createZoneNodeFromTemplate(tpl, position);
       if (!newNode) return;
+
+      pushHistory();
 
       if (activeSheet) {
         setSheetNodes((nds) => {
@@ -790,6 +975,7 @@ export default function FlowCanvas() {
         const patch = { nodes: nextNodes };
         applyLocalPatch(patch);
         sendChange(patch);
+        debouncedSave();
       } else {
         setDraftNodes((nds) => nds.concat(newNode));
       }
@@ -803,10 +989,10 @@ export default function FlowCanvas() {
       applyLocalPatch,
       sendChange,
       persistSheet,
-      setSheetNodes,
-      setDraftNodes,
       getSubZoneTemplateById,
       createZoneNodeFromTemplate,
+      debouncedSave,
+      pushHistory,
     ]
   );
 
@@ -814,10 +1000,8 @@ export default function FlowCanvas() {
     (event: React.DragEvent) => {
       event.preventDefault();
       if (!rf) return;
-
       const raw = event.dataTransfer.getData("application/reactflow");
       const txt = event.dataTransfer.getData("text/plain");
-
       const position = rf.screenToFlowPosition({
         x: event.clientX,
         y: event.clientY,
@@ -829,19 +1013,15 @@ export default function FlowCanvas() {
         try {
           const payload = JSON.parse(raw);
           if (payload?.kind === "zone" && payload?.templateId) {
-            // ⬇️ Resolvemos Cloud/DMZ/LAN/DC/OT
             const tpl = getSubZoneTemplateById(payload.templateId);
             newNode = createZoneNodeFromTemplate(tpl, position);
           }
         } catch {
-          /* no era JSON, cae abajo como tecnología */
+          /* not json -> fall through */
         }
       }
-
       if (!newNode) {
         const nodeType = raw || txt || "default";
-
-        // busca zonas existentes (type === 'zone')
         const allNodes = activeSheet
           ? sheetNodes
           : documentId
@@ -877,6 +1057,8 @@ export default function FlowCanvas() {
 
       if (!newNode) return;
 
+      pushHistory();
+
       if (activeSheet) {
         setSheetNodes((nds) => {
           const next = [...nds, newNode!];
@@ -890,6 +1072,7 @@ export default function FlowCanvas() {
         const patch = { nodes: nextNodes };
         applyLocalPatch(patch);
         sendChange(patch);
+        debouncedSave();
       } else {
         setDraftNodes((nds) => nds.concat(newNode!));
       }
@@ -906,6 +1089,8 @@ export default function FlowCanvas() {
       persistSheet,
       getSubZoneTemplateById,
       createZoneNodeFromTemplate,
+      debouncedSave,
+      pushHistory,
     ]
   );
 
@@ -954,6 +1139,8 @@ export default function FlowCanvas() {
         zIndex: 1,
       };
 
+      pushHistory();
+
       if (activeSheet) {
         setSheetNodes((nds) => {
           const next = [...nds, techNode];
@@ -966,6 +1153,7 @@ export default function FlowCanvas() {
         const patch = { nodes: [...currentNodes, techNode] };
         applyLocalPatch(patch);
         sendChange(patch);
+        debouncedSave();
       } else {
         setDraftNodes((nds) => nds.concat(techNode));
       }
@@ -981,24 +1169,63 @@ export default function FlowCanvas() {
       persistSheet,
       applyLocalPatch,
       sendChange,
+      debouncedSave,
+      pushHistory,
     ]
   );
+
+  const handleAddSwitch = useCallback(() => {
+    if (!rf) return;
+    const pt = rf.screenToFlowPosition({
+      x: window.innerWidth / 2,
+      y: window.innerHeight / 2,
+    });
+    const data: SwitchPayload = { kind: "switch", technology: SWITCH_TECH };
+    const node: Node = {
+      id: `switch-${Date.now()}`,
+      type: "switch",
+      position: { x: pt.x - 60, y: pt.y - 20 },
+      data: data as unknown as Record<string, unknown>,
+      zIndex: 1,
+    };
+
+    pushHistory();
+
+    if (activeSheet) {
+      setSheetNodes((nds) => {
+        const next = [...nds, node];
+        persistSheet(next, sheetEdges);
+        return next;
+      });
+    } else if (documentId) {
+      const current = useDocumentStore.getState().doc;
+      const currentNodes = (current?.data?.nodes as Node[]) ?? [];
+      const patch = { nodes: [...currentNodes, node] };
+      applyLocalPatch(patch);
+      sendChange(patch);
+      debouncedSave();
+    } else {
+      setDraftNodes((nds) => nds.concat(node));
+    }
+  }, [
+    rf,
+    activeSheet,
+    sheetEdges,
+    persistSheet,
+    documentId,
+    applyLocalPatch,
+    sendChange,
+    debouncedSave,
+    setDraftNodes,
+    setSheetNodes,
+    pushHistory,
+  ]);
 
   const [isEdgeStyleBarVisible, setIsEdgeStyleBarVisible] = useState(false);
   const [isCanvasActionsPanelVisible, setIsCanvasActionsPanelVisible] =
     useState(false);
 
-  // const subzonesInDiagram = useMemo(
-  //   () =>
-  //     (displayNodes ?? [])
-  //       .filter((n) => n.type === "zone")
-  //       .map((n) => String(n?.data?.id))
-  //       .filter(Boolean),
-  //   [displayNodes]
-  // );
-
   const [reqs, setReqs] = useState<RequirementsMap | null>(null);
-
   const lastKeyRef = useRef<string>("");
 
   useEffect(() => {
@@ -1006,18 +1233,13 @@ export default function FlowCanvas() {
       .filter((n) => n.type === "zone")
       .map((n) => String(n?.data?.id))
       .filter(Boolean);
-
     const key = Array.from(new Set(ids)).sort().join("|");
-
-    if (key === lastKeyRef.current) return; // ❌ no cambió el contenido
-
+    if (key === lastKeyRef.current) return;
     lastKeyRef.current = key;
-
     if (!key) {
       setReqs(null);
       return;
     }
-
     let cancelled = false;
     fetchTechRequirements({ subzones: key.split("|") })
       .then((r) => !cancelled && setReqs(r))
@@ -1025,49 +1247,144 @@ export default function FlowCanvas() {
         console.error("Error cargando requirements:", e);
         if (!cancelled) setReqs({});
       });
-
     return () => {
       cancelled = true;
     };
-  }, [displayNodes]); // puede depender de displayNodes sin problema
+  }, [displayNodes]);
 
-  const handleExportPdf = useCallback(() => {
-    if (!reqs) return; // opcional: muestra toast de "cargando"
-    exportGapPdf(displayNodes, reqs);
+  const handleExportPdf = useCallback(async () => {
+    // asegúrate de tener reqs; si no, recalcúlalo rápido
+    let map = reqs;
+    if (!map) {
+      const zoneIds = Array.from(
+        new Set(
+          (displayNodes ?? [])
+            .filter((n) => n.type === "zone")
+            .map((n) => String((n.data as any)?.id))
+            .filter(Boolean)
+        )
+      );
+      map = zoneIds.length
+        ? await fetchTechRequirements({ subzones: zoneIds })
+        : {};
+    }
+    await exportGapPdf(displayNodes, map!);
   }, [displayNodes, reqs]);
 
   const handleShowTools = () => {
     setToolbarOpen(true);
-    setIsCanvasActionsPanelVisible(false); // Asegura que el panel se cierre
+    setIsCanvasActionsPanelVisible(false);
   };
+
+  const handleSelectionChange = useCallback(
+    ({ edges }: { nodes: Node[]; edges: Edge[] }) => {
+      const next = edges.map((e) => e.id).sort();
+      const prev = lastSelectionRef.current;
+      if (sameIds(prev, next)) return;
+      lastSelectionRef.current = next;
+      setSelectedEdgeIds(next);
+    },
+    []
+  );
+
+  const deleteEdgesById = useCallback(
+    (ids: string[]) => {
+      pushHistory();
+      const apply = (edges: Edge[]) => edges.filter((e) => !ids.includes(e.id));
+
+      if (activeSheet) {
+        setSheetEdges((eds) => {
+          const next = apply(eds);
+          persistSheet(sheetNodes, next);
+          return next;
+        });
+      } else if (documentId) {
+        const current = useDocumentStore.getState().doc;
+        const currEdges = (current?.data?.edges as Edge[]) ?? [];
+        const nextEdges = apply(currEdges);
+        const patch = { edges: nextEdges };
+        applyLocalPatch(patch);
+        sendChange(patch);
+        debouncedSave();
+      } else {
+        setDraftEdges((eds) => apply(eds));
+      }
+    },
+    [
+      activeSheet,
+      sheetNodes,
+      persistSheet,
+      documentId,
+      applyLocalPatch,
+      sendChange,
+      debouncedSave,
+      pushHistory,
+    ]
+  );
+
+  const deleteNodesById = useCallback(
+    (ids: string[]) => {
+      pushHistory();
+
+      const apply = (nodes: Node[], edges: Edge[]) => {
+        // quitar edges conectadas a esos nodos
+        const nodeIdSet = new Set(ids);
+        const nextNodes = nodes.filter((n) => !nodeIdSet.has(n.id));
+        const nextEdges = edges.filter(
+          (e) => !nodeIdSet.has(e.source) && !nodeIdSet.has(e.target)
+        );
+        return { nodes: nextNodes, edges: nextEdges };
+      };
+
+      if (activeSheet) {
+        setSheetNodes((nds) => {
+          const result = apply(nds, sheetEdges);
+          setSheetEdges(result.edges);
+          persistSheet(result.nodes, result.edges);
+          return result.nodes;
+        });
+      } else if (documentId) {
+        const current = useDocumentStore.getState().doc;
+        const currNodes = (current?.data?.nodes as Node[]) ?? [];
+        const currEdges = (current?.data?.edges as Edge[]) ?? [];
+        const result = apply(currNodes, currEdges);
+        const patch = { nodes: result.nodes, edges: result.edges };
+        applyLocalPatch(patch);
+        sendChange(patch);
+        debouncedSave();
+      } else {
+        setDraftNodes((nds) => {
+          const result = apply(nds, draftEdges);
+          setDraftEdges(result.edges);
+          return result.nodes;
+        });
+      }
+    },
+    [
+      activeSheet,
+      sheetEdges,
+      persistSheet,
+      documentId,
+      applyLocalPatch,
+      sendChange,
+      debouncedSave,
+      draftEdges,
+      pushHistory,
+    ]
+  );
 
   return (
     <div className="w-screen h-[100dvh] overflow-hidden bg-slate-50">
-      {/* CSS adicional para forzar z-index */}
       <style>
         {`
-        .scrollbar-hide::-webkit-scrollbar {
-          display: none;
-        }
-        .scrollbar-hide {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-        /* React Flow siempre debajo del toolbar (z bajo) */
-        .react-flow__container,
-        .react-flow__renderer,
-        .react-flow__pane {
-          z-index: 0 !important;
-        }
-        /* Utilidad para tooltips si necesitas usarla dentro del canvas */
-        .tooltip-high-z {
-          z-index: 9999 !important;
-        }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+        .react-flow__container,.react-flow__renderer,.react-flow__pane { z-index: 0 !important; }
+        .tooltip-high-z { z-index: 9999 !important; }
       `}
       </style>
 
       <div className="flex h-full w-full flex-col">
-        {/* Toolbar: capa alta para que sus hovers/overlays estén encima */}
         <header
           className="border-b border-slate-200 bg-white/90 backdrop-blur transition-[height] duration-200 relative"
           style={{ height: toolbarOpen ? TOOLBAR_H : 0 }}
@@ -1097,14 +1414,12 @@ export default function FlowCanvas() {
         </header>
 
         <div className="flex min-h-0 flex-1">
-          {/* Sidebar - Ahora con altura completa y scroll interno */}
           <aside
             className={`shrink-0 border-r border-slate-200 bg-white/90 transition-[width] duration-200 overflow-hidden ${
               toolbarOpen ? "w-85" : "w-0"
             }`}
           >
             <div className="h-full flex flex-col">
-              {/* TechnologyPanel con altura ajustada */}
               <div className="overflow-hidden">
                 <TechnologyPanel
                   onNodeSelect={(nodeType) => {
@@ -1116,7 +1431,6 @@ export default function FlowCanvas() {
             </div>
           </aside>
 
-          {/* Canvas: z bajo y SIN isolation para no encerrar overlays */}
           <div className="relative min-h-0 flex-1">
             <div className="absolute inset-0 pb-10">
               <ReactFlow
@@ -1143,6 +1457,11 @@ export default function FlowCanvas() {
                 onDragOver={onDragOver}
                 onViewportChange={handleViewportChange}
                 onNodeClick={(_, node) => {
+                  if (isDeleteMode) {
+                    // evitar que también setee selección / panels
+                    deleteNodesById([node.id]);
+                    return;
+                  }
                   if (node.type === "zone") {
                     setSelectedZone({
                       zoneKind: (node.data as any).kind as ZoneKind,
@@ -1157,7 +1476,19 @@ export default function FlowCanvas() {
                     setSelectedTech(null);
                   }
                 }}
-                className="react-flow-container"
+                onEdgeClick={(_, edge) => {
+                  if (isDeleteMode) {
+                    deleteEdgesById([edge.id]);
+                    return;
+                  }
+                  const one = [edge.id];
+                  if (!sameIds(lastSelectionRef.current, one)) {
+                    lastSelectionRef.current = one;
+                    setSelectedEdgeIds(one);
+                  }
+                  setIsEdgeStyleBarVisible(true);
+                }}
+                onSelectionChange={handleSelectionChange}
               >
                 <Background size={2} />
                 <Controls />
@@ -1171,27 +1502,25 @@ export default function FlowCanvas() {
                 />
 
                 <Panel position="top-left" className="pointer-events-auto">
-                  {/* Contenedor flexible: separa automáticamente con gap */}
                   <div className="flex flex-wrap items-center gap-2">
-                    {/* Bloque 1: Título (presentacional) */}
                     <TitlePanel
                       title={title}
                       onChangeTitle={handleTitleInput}
                       isDraft={!documentId}
                     />
 
-                    <button
-                      onClick={() => setIsEdgeStyleBarVisible((v) => !v)}
-                      title="Configurar estilos de conexión"
-                      className={[
-                        "flex items-center gap-1 rounded px-2 py-1.5 text-xs transition-colors",
-                        isEdgeStyleBarVisible
-                          ? "bg-blue-100 text-blue-700 ring-2 ring-blue-500/20"
-                          : "text-white/90 hover:bg-white/10",
-                      ].join(" ")}
-                    >
-                      <Brush size={27} />
-                    </button>
+                    <CanvasHelpButtons
+                      onToggleEdgeStyleBar={() =>
+                        setIsEdgeStyleBarVisible((v) => !v)
+                      }
+                      isEdgeStyleBarVisible={isEdgeStyleBarVisible}
+                      onToggleDeleteMode={toggleDeleteMode}
+                      isDeleteMode={isDeleteMode}
+                      onUndo={undo}
+                      onRedo={redo}
+                      canUndo={canUndo}
+                      canRedo={canRedo}
+                    />
                   </div>
                 </Panel>
 
@@ -1200,7 +1529,7 @@ export default function FlowCanvas() {
                   onClose={() => setIsCanvasActionsPanelVisible(false)}
                   toolbarOpen={toolbarOpen}
                   onToggleTools={() => setToolbarOpen((v) => !v)}
-                  onShowTools={handleShowTools} // Nueva función para mostrar herramientas
+                  onShowTools={handleShowTools}
                 />
               </ReactFlow>
 
@@ -1215,7 +1544,6 @@ export default function FlowCanvas() {
                 documentId={documentId || ""}
               />
 
-              {/* Tabs de hojas */}
               {documentId && (
                 <SheetTabs
                   documentId={documentId}
@@ -1233,8 +1561,12 @@ export default function FlowCanvas() {
               <EdgeStylePopover
                 open={isEdgeStyleBarVisible}
                 value={edgePreset}
-                onChange={setEdgePreset}
+                onChange={(p) => {
+                  setEdgePreset(p);
+                  applyPresetToSelectedEdges(p);
+                }}
                 onClose={() => setIsEdgeStyleBarVisible(false)}
+                onAddSwitch={handleAddSwitch}
               />
 
               <RecommendedTechPanel

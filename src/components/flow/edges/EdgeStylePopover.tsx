@@ -16,6 +16,7 @@ type PopoverProps = {
   value: EdgePreset;
   onChange: (v: EdgePreset) => void;
   onClose: () => void;
+  onAddSwitch?: () => void;
 };
 
 type StyleBarProps = {
@@ -56,18 +57,18 @@ function EdgeStyleBar({ value, onChange, className = "" }: StyleBarProps) {
       <div className="flex items-start justify-between">
         <div className="flex flex-col">
           <div className="flex items-center gap-2">
-            <Zap size={18} className="text-blue-400" />
-            <h3 className="text-base font-semibold text-white">
+            <Zap size={18} className="text-blue-600" />
+            <h3 className="text-base font-semibold text-gray-900">
               Estilo de conexión
             </h3>
           </div>
-          <p className="mt-1 text-xs text-white/60">
+          <p className="mt-1 text-xs text-gray-600">
             Personaliza el aspecto visual de las conexiones
           </p>
         </div>
         <div className="relative">
           <button
-            className="text-white/40 transition-colors hover:text-white/70"
+            className="text-gray-500 transition-colors hover:text-gray-700 hover:bg-gray-100 rounded-md p-1.5"
             onMouseEnter={() => setActiveTooltip("help")}
             onMouseLeave={() => setActiveTooltip(null)}
             onClick={() =>
@@ -79,17 +80,17 @@ function EdgeStyleBar({ value, onChange, className = "" }: StyleBarProps) {
           </button>
 
           {activeTooltip === "help" && (
-            <div className="absolute right-0 top-full z-10 mt-2 w-64 rounded-lg border border-gray-700 bg-gray-900 p-3 shadow-xl">
-              <div className="mb-1 text-sm font-medium text-white">
+            <div className="absolute right-0 top-full z-10 mt-2 w-64 rounded-lg border border-gray-200 bg-white p-3 shadow-xl">
+              <div className="mb-1 text-sm font-medium text-gray-900">
                 ¿Cómo usar?
               </div>
-              <div className="space-y-1 text-xs text-gray-300">
+              <div className="space-y-1 text-xs text-gray-700">
                 <p>• Selecciona un color para el tipo de conexión</p>
                 <p>• Ajusta el grosor según la importancia</p>
                 <p>• Línea discontinua para conexiones especiales</p>
                 <p>• Animación para conexiones críticas</p>
               </div>
-              <div className="absolute -top-1 right-3 h-3 w-3 rotate-45 border-l border-t border-gray-700 bg-gray-900" />
+              <div className="absolute -top-1 right-3 h-3 w-3 rotate-45 border-l border-t border-gray-200 bg-white" />
             </div>
           )}
         </div>
@@ -98,8 +99,8 @@ function EdgeStyleBar({ value, onChange, className = "" }: StyleBarProps) {
       {/* Color */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <span className="text-sm font-medium text-white/90">Color</span>
-          <span className="text-xs capitalize text-white/60">{safeColor}</span>
+          <span className="text-sm font-medium text-gray-900">Color</span>
+          <span className="text-xs capitalize bg-white">{safeColor}</span>
         </div>
 
         <div className="grid grid-cols-6 gap-2">
@@ -113,26 +114,22 @@ function EdgeStyleBar({ value, onChange, className = "" }: StyleBarProps) {
                 aria-pressed={value.color === key}
                 className={`flex h-8 w-full items-center justify-center rounded-lg border-2 transition-all duration-200 ${
                   value.color === key
-                    ? "scale-105 ring-2 ring-white/80 shadow-lg"
-                    : "hover:scale-105"
+                    ? "scale-105 ring-2 ring-blue-300 shadow-lg border-blue-400"
+                    : "hover:scale-105 border-gray-300"
                 }`}
                 style={{
                   background: EDGE_COLORS[key],
-                  borderColor:
-                    value.color === key
-                      ? "rgba(255,255,255,.5)"
-                      : "rgba(255,255,255,.2)",
                 }}
               >
                 {value.color === key && (
-                  <div className="h-2 w-2 rounded-full bg-white/90" />
+                  <div className="h-2 w-2 rounded-full bg-white shadow-sm" />
                 )}
               </button>
 
               {activeTooltip === `color-${key}` && (
-                <div className="absolute bottom-full left-1/2 -translate-x-1/2 transform rounded border border-gray-700 bg-gray-900 px-2 py-1 text-xs text-white">
+                <div className="absolute bottom-full left-1/2 -translate-x-1/2 transform rounded border border-gray-200 bg-white px-2 py-1 text-xs text-gray-900 shadow-lg">
                   {key}
-                  <div className="absolute left-1/2 top-full h-2 w-2 -translate-x-1/2 rotate-45 border-b border-r border-gray-700 bg-gray-900" />
+                  <div className="absolute left-1/2 top-full h-2 w-2 -translate-x-1/2 rotate-45 border-b border-r border-gray-200 bg-white" />
                 </div>
               )}
             </div>
@@ -143,8 +140,8 @@ function EdgeStyleBar({ value, onChange, className = "" }: StyleBarProps) {
       {/* Grosor */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <span className="text-sm font-medium text-white/90">Grosor</span>
-          <span className="text-xs text-white/60">
+          <span className="text-sm font-medium text-gray-900">Grosor</span>
+          <span className="text-xs text-gray-600">
             {thicknessConfig[value.thickness].label}
           </span>
         </div>
@@ -157,14 +154,14 @@ function EdgeStyleBar({ value, onChange, className = "" }: StyleBarProps) {
               onMouseEnter={() => setActiveTooltip(`thickness-${t}`)}
               onMouseLeave={() => setActiveTooltip(null)}
               aria-pressed={value.thickness === t}
-              className={`flex flex-col items-center gap-2 rounded-lg border p-2 transition-all ${
+              className={`flex flex-col items-center gap-2 rounded-lg border p-2 transition-all  ${
                 value.thickness === t
-                  ? "border-white/25 bg-white/15 shadow-inner"
-                  : "border-white/15 hover:bg-white/5"
+                  ? "border-blue-300 bg-blue-50 shadow-inner"
+                  : "border-gray-200 hover:bg-gray-50"
               }`}
             >
               {getThicknessDisplay(thicknessConfig[t].value)}
-              <span className="text-xs text-white/70">
+              <span className="text-xs text-white">
                 {thicknessConfig[t].label}
               </span>
             </button>
@@ -174,8 +171,8 @@ function EdgeStyleBar({ value, onChange, className = "" }: StyleBarProps) {
 
       {/* Estilos */}
       <div className="space-y-2">
-        <span className="text-sm font-medium text-white/90">Estilos</span>
-        <div className="grid grid-cols-2 gap-2">
+        <span className="text-sm font-medium text-gray-900">Estilos</span>
+        <div className="grid grid-cols-2 gap-2 ">
           {[
             {
               key: "dashed",
@@ -202,28 +199,28 @@ function EdgeStyleBar({ value, onChange, className = "" }: StyleBarProps) {
               className={`flex items-center justify-center gap-2 rounded-lg border p-2 transition-all ${
                 active
                   ? variant === "blue"
-                    ? "bg-blue-500/20 border-blue-400/30"
-                    : "bg-purple-500/20 border-purple-400/30"
-                  : "bg-white/5 border-white/15 hover:bg-white/10"
+                    ? "bg-blue-50 border-blue-300"
+                    : "bg-purple-50 border-purple-300"
+                  : "bg-gray-50 border-gray-200 hover:bg-gray-100"
               }`}
             >
               <Icon
                 className={`h-4 w-4 transition-colors ${
                   active
                     ? variant === "blue"
-                      ? "text-blue-300"
-                      : "text-purple-300"
-                    : "text-white/60"
+                      ? "text-blue-600"
+                      : "text-purple-600"
+                    : "text-gray-500"
                 }`}
               />
-              <span className="text-xs font-medium text-white/90">{label}</span>
+              <span className="text-xs font-medium text-white">{label}</span>
               <div
                 className={`ml-auto h-2 w-2 rounded-full transition-all ${
                   active
                     ? variant === "blue"
-                      ? "bg-blue-400"
-                      : "bg-purple-400"
-                    : "bg-white/30"
+                      ? "bg-blue-500"
+                      : "bg-purple-500"
+                    : "bg-gray-300"
                 }`}
               />
             </button>
@@ -232,9 +229,9 @@ function EdgeStyleBar({ value, onChange, className = "" }: StyleBarProps) {
       </div>
 
       {/* Vista previa */}
-      <div className="space-y-2 border-t border-white/10 pt-2">
-        <span className="text-sm font-medium text-white/90">Vista previa</span>
-        <div className="flex h-8 items-center justify-center rounded-lg bg-white/5 p-2">
+      <div className="space-y-2 border-t border-gray-200 pt-2">
+        <span className="text-sm font-medium text-gray-900">Vista previa</span>
+        <div className="flex h-8 items-center justify-center rounded-lg bg-gray-50 p-2 border border-gray-200">
           <div
             className="relative w-full overflow-hidden rounded-full"
             style={{
@@ -263,19 +260,21 @@ export default function EdgeStylePopover({
   value,
   onChange,
   onClose,
+  onAddSwitch,
 }: PopoverProps) {
   if (!open) return null;
 
   return (
     <div className="fixed bottom-4 right-4 z-[60] w-[380px]">
-      <div className="rounded-xl border border-white/15 bg-[#0f1116]/95 backdrop-blur-lg shadow-2xl">
-        <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
-          <div className="text-sm font-medium text-white/80">
+      <div className="rounded-xl border border-gray-200 bg-white shadow-2xl shadow-gray-900/10">
+        <div className="flex items-center justify-between border-b border-gray-200 bg-gray-50 px-4 py-3">
+          <div className="text-sm font-medium text-gray-900">
             Estilos de conexión
           </div>
+
           <button
             onClick={onClose}
-            className="rounded-md p-1 text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+            className="rounded-md p-1 text-gray-500 transition-colors hover:bg-gray-200 hover:text-gray-700"
             aria-label="Cerrar"
             title="Cerrar"
           >
@@ -285,6 +284,16 @@ export default function EdgeStylePopover({
 
         <div className="p-4">
           <EdgeStyleBar value={value} onChange={onChange} />
+          {onAddSwitch && (
+            <div className="mt-3 border-t border-gray-200 pt-3">
+              <button
+                onClick={onAddSwitch}
+                className="w-full rounded-md bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700"
+              >
+                Añadir Switch al lienzo
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

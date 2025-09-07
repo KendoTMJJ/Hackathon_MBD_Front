@@ -2,8 +2,8 @@ export type CloudZoneId =
   | "cloud-platform-security"
   | "digital-certificates-aas"
   | "proxy-aas"
-  | "email-gateway-aas"
-  | "ddos-protection";
+  | "ddos-protection"
+  | "email-gateway-aas";
 
 export interface CloudZone {
   id: CloudZoneId;

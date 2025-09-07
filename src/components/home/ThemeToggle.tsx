@@ -13,7 +13,7 @@ export default function ThemeToggle() {
 
   const onClick = () => {
     toggleTheme();
-    setTheme(t => (t === "dark" ? "light" : "dark"));
+    setTheme((t) => (t === "dark" ? "light" : "dark"));
   };
 
   const isDark = theme === "dark";
