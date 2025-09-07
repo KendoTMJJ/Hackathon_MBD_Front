@@ -1,74 +1,150 @@
-@import "tailwindcss";
+/* ---- Tokens por defecto (CLARO) ---- */
+:root {
+  /* Paleta base */
+  --primary:        #34495E;
+  --primary-600:    #2b3c4e;
+  --accent:         #646cff;
+
+  --bg:             #ffffff;
+  --ink:            #213547;
+  --muted:          #5d6d7e;
+
+  --panel:          #EDF3F8;
+  --panel-strong:   #E4EEF6;
+  --line:           #CAD8E6;
+
+  /* Componentes */
+  --btn-bg:         #f9f9f9;
+  --btn-ink:        #213547;
+  --btn-border:     transparent;
+
+  /* Miscelánea */
+  --transition:     180ms ease;
+
+  /* Hints para UA (por defecto claro) */
+  color-scheme: light;
+}
+
+/* ---- Overrides para TEMA OSCURO via prefers-color-scheme ---- */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg:           #1f2023;
+    --ink:          #e8eaed;
+    --muted:        #b8bcc7;
+
+    --panel:        #202127;
+    --panel-strong: #2a2b31;
+    --line:         #2f3b46;
+
+    --btn-bg:       #333333;
+    --btn-ink:      #e8eaed;
+    --btn-border:   transparent;
+
+    color-scheme: dark;
+  }
+}
+
+/* ---- Overrides para forzar tema con data-theme ---- */
+/* Pon <html data-theme="dark"> para forzar */
+:root[data-theme="dark"] {
+  --bg:           #1f2023;
+  --ink:          #e8eaed;
+  --muted:        #b8bcc7;
+
+  --panel:        #202127;
+  --panel-strong: #2a2b31;
+  --line:         #2f3b46;
+
+  --btn-bg:       #333333;
+  --btn-ink:      #e8eaed;
+  --btn-border:   transparent;
+
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+
+html, body, #root {
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  transition:
+    background-color var(--transition),
+    color var(--transition);
+  /* Evitar barra horizontal global */
+  overflow-x: clip;
+}
+
+/* Fallback si el navegador no soporta clip */
+@supports not (overflow-x: clip) {
+  html, body, #root { overflow-x: hidden; }
+}
+
+/* Medios responsivos */
+img, video { max-width: 100%; height: auto; display: block; }
 
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
-
-  color-scheme: light dark;
-  color: rgba(0, 0, 0, 0.87);
-  background-color: #242424;
-
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  /* Firefox */
+  scrollbar-color: rgba(52,73,94,.35) transparent;
+  scrollbar-width: thin;
 }
+/* WebKit */
+::-webkit-scrollbar {
+  height: 10px;
+  width: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(52,73,94,.35);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-track { background: transparent; }
 
 a {
   font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
+  color: var(--accent);
+  text-decoration: none;
+  transition: color var(--transition);
 }
-a:hover {
-  color: #535bf2;
-}
+a:hover { opacity: .9; }
 
 body {
   margin: 0;
-  display: block;
   min-width: 320px;
   min-height: 100vh;
+  display: block;
 }
 
 h1 {
   font-size: 2rem;
   line-height: 1.2;
+  margin: 0 0 .5rem 0;
 }
 
-.cursor-crosshair {
-  cursor: crosshair;
-}
+/* Utilidad puntero */
+.cursor-crosshair { cursor: crosshair; }
 
 button {
   border-radius: 8px;
-  border: 1px solid transparent;
+  border: 1px solid var(--btn-border);
   padding: 0.6em 1.2em;
-  font-size: 1em;
+  font-size: 1rem;
   font-weight: 500;
   font-family: inherit;
-  background-color: #333333;
+  background-color: var(--btn-bg);
+  color: var(--btn-ink);
   cursor: pointer;
-  transition: border-color 0.25s;
+  transition: border-color var(--transition), transform var(--transition);
 }
-
-button:hover {
-  border-color: #646cff;
-}
+button:hover { border-color: var(--accent); }
+button:active { transform: translateY(1px); }
 button:focus,
 button:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
+/* Evita inversiones accidentales (si usas invert en img/logos) */
+.no-invert, .no-invert * {
+  filter: none !important;
+  -webkit-filter: none !important;
+  mix-blend-mode: normal !important;
 }
