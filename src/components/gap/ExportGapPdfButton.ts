@@ -178,7 +178,6 @@ export function exportGapPdf(
   };
 
   // Portada
-  doc.addPage();
   doc.setFillColor(...COLORS.background);
   doc.rect(0, 0, pageWidth, pageHeight, "F");
 

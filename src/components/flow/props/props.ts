@@ -44,4 +44,5 @@ export default interface ViewProps {
   onOpenInfo: () => void;
 
   onExportPdf?: () => void; // 👈 NUEVO
+  onExportImg?: () => void;
 }

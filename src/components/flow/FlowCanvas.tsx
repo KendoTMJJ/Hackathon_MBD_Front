@@ -65,6 +65,7 @@ import {
 } from "../../hooks/useTecnologies";
 import { SWITCH_TECH, type SwitchPayload } from "./nodes/SwitchNode";
 import CanvasHelpButtons from "./CanvasHelpButtons";
+import { captureFlowAsPng } from "../gap/captureCanvas";
 
 const initialNodes: Node[] = [];
 const initialEdges: Edge[] = [];
@@ -83,11 +84,13 @@ export default function FlowCanvas() {
   const [selectedTech, setSelectedTech] = useState<TechLike | null>(null);
   const [hasPendingChanges, setHasPendingChanges] = useState(false);
   const lastSavedRef = useRef<string>("");
+  const flowContainerRef = useRef<HTMLDivElement | null>(null);
 
   type Snapshot = { nodes: Node[]; edges: Edge[] };
   const [past, setPast] = useState<Snapshot[]>([]);
   const [future, setFuture] = useState<Snapshot[]>([]);
   const lastSnapRef = useRef<string>("");
+  const canvasRef = useRef<HTMLDivElement>(null); // 👈 NUEVO
 
   // --- Edge selection (para editar estilos existentes) ---
   const [selectedEdgeIds, setSelectedEdgeIds] = useState<string[]>([]);
@@ -351,65 +354,6 @@ export default function FlowCanvas() {
       debouncedSave,
     ]
   );
-
-  // const deleteSelection = useCallback(() => {
-  //   // Tomamos el set actual según el contexto (sheet / doc / draft)
-  //   const nodes = activeSheet
-  //     ? sheetNodes
-  //     : documentId
-  //     ? storeNodes
-  //     : draftNodes;
-  //   const edges = activeSheet
-  //     ? sheetEdges
-  //     : documentId
-  //     ? storeEdges
-  //     : draftEdges;
-
-  //   const selectedNodeIds = nodes.filter((n) => n.selected).map((n) => n.id);
-  //   const selectedEdgeIds = edges.filter((e) => e.selected).map((e) => e.id);
-
-  //   if (!selectedNodeIds.length && !selectedEdgeIds.length) return;
-
-  //   const nextNodes = nodes.filter((n) => !selectedNodeIds.includes(n.id));
-  //   // quita edges seleccionadas y también las conectadas a nodos borrados
-  //   const nextEdges = edges.filter(
-  //     (e) =>
-  //       !selectedEdgeIds.includes(e.id) &&
-  //       !selectedNodeIds.includes(e.source) &&
-  //       !selectedNodeIds.includes(e.target)
-  //   );
-
-  //   if (activeSheet) {
-  //     setSheetNodes(nextNodes);
-  //     setSheetEdges(nextEdges);
-  //     persistSheet(nextNodes, nextEdges);
-  //   } else if (documentId) {
-  //     const patch = { nodes: nextNodes, edges: nextEdges };
-  //     applyLocalPatch(patch);
-  //     sendChange(patch);
-  //     debouncedSave();
-  //   } else {
-  //     setDraftNodes(nextNodes);
-  //     setDraftEdges(nextEdges);
-  //   }
-  // }, [
-  //   activeSheet,
-  //   sheetNodes,
-  //   sheetEdges,
-  //   documentId,
-  //   storeNodes,
-  //   storeEdges,
-  //   draftNodes,
-  //   draftEdges,
-  //   persistSheet,
-  //   applyLocalPatch,
-  //   sendChange,
-  //   debouncedSave,
-  //   setSheetNodes,
-  //   setSheetEdges,
-  //   setDraftNodes,
-  //   setDraftEdges,
-  // ]);
 
   const onEdgesChange: OnEdgesChange = useCallback(
     (changes) => {
@@ -1373,6 +1317,16 @@ export default function FlowCanvas() {
     ]
   );
 
+  const handleExportImage = useCallback(async () => {
+    if (!flowContainerRef.current) return;
+    await captureFlowAsPng(flowContainerRef.current, {
+      backgroundColor: "#ffffff",
+      scale: 2,
+      padding: 16,
+      downloadFileName: `${(title || "diagrama").trim() || "diagrama"}.png`,
+    });
+  }, [title]);
+
   return (
     <div className="w-screen h-[100dvh] overflow-hidden bg-slate-50">
       <style>
@@ -1407,6 +1361,7 @@ export default function FlowCanvas() {
                 setIsCanvasActionsPanelVisible((v) => !v)
               }
               onExportPdf={handleExportPdf}
+              onExportImg={handleExportImage} // 👈 cambia aquí el nombre
               onOpenShare={() => setShareModalOpen(true)}
               onOpenInfo={() => setInfoModalOpen(true)}
             />
@@ -1432,7 +1387,7 @@ export default function FlowCanvas() {
           </aside>
 
           <div className="relative min-h-0 flex-1">
-            <div className="absolute inset-0 pb-10">
+            <div ref={canvasRef} className="absolute inset-0 pb-10">
               <ReactFlow
                 key={
                   activeSheet

@@ -93,7 +93,6 @@ export default function ZoneNode({ data, selected }: ZoneNodeProps) {
 
   // Overrides (para subzonas)
   const badgeText = data.badgeText ?? variant.badgeText;
-  const dropHint = data.dropHint ?? variant.dropHint;
 
   return (
     <div
@@ -236,15 +235,6 @@ export default function ZoneNode({ data, selected }: ZoneNodeProps) {
               <Trash2 size={16} className="text-red-500 hover:text-red-600" />
             </button>
           )}
-        </div>
-      </div>
-
-      <div className="pointer-events-none absolute inset-4 top-24 flex items-center justify-center rounded-xl border-2 border-dashed border-transparent transition-all duration-300">
-        <div className="text-center opacity-30 transition-all duration-300 group-hover:opacity-70 group-hover:scale-105">
-          <div className="text-sm font-medium text-gray-700 mb-1">
-            {dropHint}
-          </div>
-          <div className="text-xs text-gray-500">Arrastra elementos aquí</div>
         </div>
       </div>
     </div>
