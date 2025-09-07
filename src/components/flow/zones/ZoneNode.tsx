@@ -40,27 +40,32 @@ const VARIANTS: Record<
     Icon: React.ComponentType<{ size?: number; className?: string }>;
     badgeText: string;
     dropHint: string;
+    image?: string;
   }
 > = {
   dmz: {
     Icon: Shield,
     badgeText: "DMZ",
     dropHint: "Suelta servicios públicos",
+    image: "/images/dmz-titulo.png",
   },
   lan: {
     Icon: Network,
     badgeText: "LAN Interna",
     dropHint: "Suelta tecnologías internas",
+    image: "/images/lan-titulo.png",
   },
   datacenter: {
     Icon: Database,
     badgeText: "Data Center",
     dropHint: "Suelta servidores/ALB/DB",
+    image: "/images/datacenter-titulo.png",
   },
   cloud: {
     Icon: CloudIcon,
     badgeText: "Cloud",
     dropHint: "Suelta servicios cloud",
+    image: "/images/nube-titulo.png",
   },
   ot: {
     Icon: Cpu,
@@ -92,13 +97,25 @@ export default function ZoneNode({ data, selected }: ZoneNodeProps) {
 
   return (
     <div
-      className={`group relative w-full h-full min-w-[280px] min-h-[180px] rounded-xl border-2 bg-[#0b0e13]/90 backdrop-blur-sm p-5 pointer-events-auto transition-all duration-200 ${
+      className={`group relative w-full h-full min-w-[280px] min-h-[180px] rounded-xl border-2 bg-white backdrop-blur-sm p-5 pointer-events-auto transition-all duration-200 shadow-sm ${
         selected
           ? "ring-2 ring-blue-500/50 shadow-xl shadow-blue-500/10 scale-[1.02]"
-          : "hover:shadow-lg hover:shadow-black/20"
+          : "hover:shadow-lg hover:shadow-gray-200/50"
       }`}
       style={{ borderColor, backgroundColor: bgColor }}
     >
+      {variant.image && (
+        <div className="absolute -top-16 left-1/2 transform -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none z-50">
+          <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-2">
+            <img
+              src={variant.image || "/placeholder.svg"}
+              alt={`${badgeText} Title`}
+              className="w-24 h-auto"
+            />
+          </div>
+        </div>
+      )}
+
       <NodeResizer
         isVisible={!!selected}
         minWidth={280}
@@ -109,7 +126,7 @@ export default function ZoneNode({ data, selected }: ZoneNodeProps) {
           width: 8,
           height: 8,
           borderRadius: 4,
-          border: "2px solid rgba(255,255,255,0.2)",
+          border: "2px solid rgba(255,255,255,0.8)",
         }}
       />
 
@@ -125,7 +142,7 @@ export default function ZoneNode({ data, selected }: ZoneNodeProps) {
       ].map((handle) => (
         <Handle
           key={`${handle.type}-${handle.id}`}
-          className="!w-4 !h-4 !bg-gray-700 !border-2 rounded-full opacity-0 group-hover:!opacity-100 transition-all duration-200 hover:!scale-125"
+          className="!w-4 !h-4 !bg-gray-300 !border-2 rounded-full opacity-0 group-hover:!opacity-100 transition-all duration-200 hover:!scale-125"
           type={handle.type as any}
           position={handle.position}
           id={handle.id}
@@ -136,11 +153,11 @@ export default function ZoneNode({ data, selected }: ZoneNodeProps) {
       <div className="zone-drag-handle relative mb-4 flex cursor-move select-none items-start justify-between">
         <div className="flex items-center gap-4">
           <div
-            className="rounded-xl p-3 shadow-lg"
+            className="rounded-xl p-3 shadow-sm"
             style={{
               backgroundColor: `${borderColor}20`,
               color: borderColor,
-              boxShadow: `0 4px 12px ${borderColor}15`,
+              boxShadow: `0 2px 8px ${borderColor}15`,
             }}
           >
             <Icon size={20} />
@@ -166,7 +183,7 @@ export default function ZoneNode({ data, selected }: ZoneNodeProps) {
               </span>
             </div>
             {data.description && (
-              <div className="text-sm text-black max-w-[200px] leading-relaxed">
+              <div className="text-sm text-gray-700 max-w-[200px] leading-relaxed">
                 {data.description}
               </div>
             )}
@@ -180,11 +197,14 @@ export default function ZoneNode({ data, selected }: ZoneNodeProps) {
                 e.stopPropagation();
                 data.onExpand!(data.id);
               }}
-              className="rounded-lg p-2 hover:bg-white/15 transition-colors duration-200 nodrag nowheel"
+              className="rounded-lg p-2 hover:bg-gray-100 transition-colors duration-200 nodrag nowheel"
               title="Expandir zona"
               aria-label="Expandir zona"
             >
-              <Maximize2 size={16} className="text-white/80 hover:text-white" />
+              <Maximize2
+                size={16}
+                className="text-gray-600 hover:text-gray-800"
+              />
             </button>
           )}
           {data.onEdit && (
@@ -193,11 +213,14 @@ export default function ZoneNode({ data, selected }: ZoneNodeProps) {
                 e.stopPropagation();
                 data.onEdit!(data);
               }}
-              className="rounded-lg p-2 hover:bg-white/15 transition-colors duration-200 nodrag nowheel"
+              className="rounded-lg p-2 hover:bg-gray-100 transition-colors duration-200 nodrag nowheel"
               title="Editar zona"
               aria-label="Editar zona"
             >
-              <Settings size={16} className="text-white/80 hover:text-white" />
+              <Settings
+                size={16}
+                className="text-gray-600 hover:text-gray-800"
+              />
             </button>
           )}
           {data.onDelete && (
@@ -206,11 +229,11 @@ export default function ZoneNode({ data, selected }: ZoneNodeProps) {
                 e.stopPropagation();
                 data.onDelete!(data.id);
               }}
-              className="rounded-lg p-2 hover:bg-red-500/20 transition-colors duration-200 nodrag nowheel"
+              className="rounded-lg p-2 hover:bg-red-50 transition-colors duration-200 nodrag nowheel"
               title="Eliminar zona"
               aria-label="Eliminar zona"
             >
-              <Trash2 size={16} className="text-red-400 hover:text-red-300" />
+              <Trash2 size={16} className="text-red-500 hover:text-red-600" />
             </button>
           )}
         </div>
@@ -218,10 +241,10 @@ export default function ZoneNode({ data, selected }: ZoneNodeProps) {
 
       <div className="pointer-events-none absolute inset-4 top-24 flex items-center justify-center rounded-xl border-2 border-dashed border-transparent transition-all duration-300">
         <div className="text-center opacity-30 transition-all duration-300 group-hover:opacity-70 group-hover:scale-105">
-          <div className="text-sm font-medium text-white/80 mb-1">
+          <div className="text-sm font-medium text-gray-700 mb-1">
             {dropHint}
           </div>
-          <div className="text-xs text-white/60">Arrastra elementos aquí</div>
+          <div className="text-xs text-gray-500">Arrastra elementos aquí</div>
         </div>
       </div>
     </div>

@@ -12,10 +12,13 @@ export type DatacenterZoneId =
   | "dc-messaging-servers"
   | "dc-directory-dns-dhcp-ntp"
   | "dc-virtual-servers"
-  | "dc-db-waf"
   | "dc-channel-encryption"
   | "dc-app-servers"
-  | "dc-databases";
+  | "dc-databases"
+  | "dc-waf-databases"
+  | "dc-firewall-ips/id"
+  | "dc-admin-canal"
+  | "dc-Ddos-protection";
 
 export interface DatacenterZone {
   id: DatacenterZoneId;
@@ -30,6 +33,32 @@ export interface DatacenterZone {
 }
 
 export const datacenterZones: DatacenterZone[] = [
+  {
+    id: "dc-Ddos-protection",
+    name: "DDoS",
+    description:
+      "Punto de defensa dedicado a la detección y mitigación de ataques DDoS en el perímetro de red.",
+    color: "#E51212",
+    icon: "🧱",
+  },
+  {
+    id: "dc-firewall-ips/id",
+    name: "Firewall IPS/IDS",
+    description:
+      "Sistema de firewall perimetral con funciones de detección y prevención de intrusiones para proteger el datacenter frente a accesos no autorizados y ataques avanzados.",
+    color: "#E51212",
+    icon: "🛡️",
+  },
+
+  {
+    id: "dc-admin-canal",
+    name: "Administrador de Canal",
+    description:
+      "Componente de seguridad perimetral encargado de la gestión de tráfico y la mitigación de amenazas a nivel de canal en el datacenter.",
+    color: "#E53935",
+    icon: "📡",
+  },
+
   {
     id: "dc-id-management",
     name: "Gestión de ID",
@@ -112,14 +141,6 @@ export const datacenterZones: DatacenterZone[] = [
     icon: "🖥️",
   },
   {
-    id: "dc-db-waf",
-    name: "WAF Base de Datos",
-    description: "Protección y auditoría para bases de datos.",
-    color: "#E300A4",
-
-    icon: "🛡️",
-  },
-  {
     id: "dc-channel-encryption",
     name: "Cifrados de Canal",
     description: "TLS/IPsec, túneles y cifrado de comunicaciones.",
@@ -132,9 +153,16 @@ export const datacenterZones: DatacenterZone[] = [
     name: "Servidores de Aplicaciones",
     description: "App servers, middlewares y APIs internas.",
     color: "#E300A4",
-
     icon: "🧩",
   },
+  {
+    id: "dc-waf-databases",
+    name: "WAF Base de Datos",
+    description: "Protección y auditoría para bases de datos.",
+    color: "#E300A4",
+    icon: "🗄️",
+  },
+
   {
     id: "dc-databases",
     name: "Base de Datos",

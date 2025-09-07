@@ -10,7 +10,7 @@ export type OtZoneId =
   | "ot-production-management"
   | "ot-inspection-network"
   | "ot-rtu"
-  | "ot-plc"
+  | "ot-pcl"
   | "ot-wireless-industrial-network"
   | "ot-work-station"
   | "ot-mobile"
@@ -123,8 +123,8 @@ export const otZones: OtZone[] = [
   },
 
   {
-    id: "ot-plc",
-    name: "PLC",
+    id: "ot-pcl",
+    name: "PCL",
     description: "Controladores lógicos programables.",
     color: "#992E08",
     level: "high",

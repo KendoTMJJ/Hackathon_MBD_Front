@@ -167,7 +167,7 @@ export default function HomePage() {
       return;
     }
     setPendingTpl(tpl);
-    setSuggestedName(`Mi ${tpl.title ?? "diagrama"}`);
+    setSuggestedName(`${tpl.title ?? "diagrama"}`);
     setAskNameOpen(true);
   };
 
