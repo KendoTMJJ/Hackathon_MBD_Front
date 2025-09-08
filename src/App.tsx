@@ -1,23 +1,28 @@
-// App.tsx
+// src/App.tsx
 import { Routes, Route, Navigate } from "react-router-dom";
-import HomePage from "./pages/HomePage";
-import BoardPage from "./pages/BoardPage";
-import ProfilePage from "./pages/ProfilePage";
+import HomePage from "./Pages/HomePage";
+import BoardPage from "./Pages/BoardPage";
+import ProfilePage from "./Pages/ProfilePage";
+import LandingPage from "./Pages/LandingPage/LandingPage";
 import RequireAuth from "./components/auth/RequireAuth";
-// import SharedDocument from "./pages/SharedDocumentPage";
-import "./theme.css";
-import ThemeToggle from "./components/home/ThemeToggle";
 
 export default function App() {
   return (
-    <div className="w-screen h-[100dvh] overflow-hidden bg-[#0f1115]">
-      <main className="h-full">
-        <ThemeToggle />
+    <div
+      className="w-screen min-h-screen overflow-x-hidden overflow-y-auto"
+      style={{ background: "var(--bg)", color: "var(--fg)" }}
+    >
+      <main className="min-h-dvh">
         <Routes>
-          {/* Home público: lista proyectos y plantillas */}
-          <Route path="/" element={<HomePage />} />
+          {/* Landing principal */}
+          <Route path="/" element={<LandingPage />} />
 
-          {/* Board con :documentId (recomendado) */}
+          {/* Home (opcional) */}
+          <Route path="/home" element={<HomePage />} />
+          <Route path="/templates" element={<HomePage />} />
+          <Route path="/documents" element={<HomePage />} />
+
+          {/* Board protegido */}
           <Route
             path="/Board/:documentId"
             element={
@@ -26,8 +31,6 @@ export default function App() {
               </RequireAuth>
             }
           />
-
-          {/* OPCIONAL: Board leyendo ?doc=<id> o ?id=<id> */}
           <Route
             path="/Board"
             element={
@@ -37,7 +40,7 @@ export default function App() {
             }
           />
 
-          {/* Perfil (protegido) */}
+          {/* Perfil protegido */}
           <Route
             path="/profile"
             element={
@@ -49,11 +52,6 @@ export default function App() {
 
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />
-
-          <Route path="/" element={<HomePage />} />
-          <Route path="/templates" element={<HomePage />} />
-          <Route path="/documents" element={<HomePage />} />
-          {/* <Route path="/shared/:token" element={<SharedDocument />} /> */}
         </Routes>
       </main>
     </div>
