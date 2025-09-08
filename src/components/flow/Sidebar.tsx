@@ -1,9 +1,10 @@
+// src/components/flow/Sidebar.tsx
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, NavLink } from "react-router-dom";
 import { useAuth0 } from "@auth0/auth0-react";
 import { useTranslation } from "react-i18next";
 import LanguageToggle from "../public/LanguageToggle";
-import { User } from "lucide-react";
+import { BookText, House, StickyNote, User } from "lucide-react";
 import { useProject } from "../../hooks/useProject";
 
 function defaultTitle() {
@@ -20,7 +21,6 @@ const Sidebar: React.FC = () => {
   const { t, i18n } = useTranslation();
   const { user, isAuthenticated, loginWithRedirect, logout } = useAuth0();
   const projectsApi = useProject();
-
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
@@ -44,8 +44,8 @@ const Sidebar: React.FC = () => {
       .join("") || "DB";
 
   const linkBase =
-    "block rounded-lg px-3 py-2.5 text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors font-medium";
-  const linkActive = "bg-blue-50 text-blue-700 border-r-2 border-blue-600";
+    "block rounded-xl px-4 py-3 text-[#ECF0F1] hover:bg-[#34495E] hover:text-white transition-all font-medium flex items-center gap-3";
+  const linkActive = "bg-[#34495E] text-white border-r-4 border-[#3498DB]";
 
   const handleNew = async () => {
     if (!isAuthenticated) {
@@ -69,23 +69,23 @@ const Sidebar: React.FC = () => {
   const uiLocale = i18n.language?.startsWith("en") ? "en" : "es";
 
   return (
-    <div className="flex h-full flex-col justify-between">
+    <div className="flex h-full flex-col justify-between text-white">
       {/* Top: usuario + acciones rápidas + navegación */}
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-5">
         {/* User chip + menú */}
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center justify-between gap-3 p-3 bg-[#34495E] rounded-xl">
           <div className="flex items-center gap-3">
             <div
-              className="grid h-10 w-10 select-none place-items-center rounded-lg bg-gradient-to-r from-blue-600 to-blue-500 font-bold text-white shadow-sm"
+              className="grid h-12 w-12 select-none place-items-center rounded-xl bg-white font-bold text-[#2C3E50] shadow-md"
               aria-hidden="true"
             >
               {initials}
             </div>
             <div>
-              <div className="font-semibold text-gray-900">
+              <div className="font-semibold text-white">
                 {isAuthenticated ? displayName : "Usuario"}
               </div>
-              <div className="text-xs text-gray-500">
+              <div className="text-xs text-[#BDC3C7]">
                 {t("sidebar.personal")}
               </div>
             </div>
@@ -101,7 +101,6 @@ const Sidebar: React.FC = () => {
                     authorizationParams: { ui_locales: uiLocale },
                   })
                 }
-                className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 shadow-sm transition-colors"
                 title={t("navbar.login")}
               >
                 <User size={16} />
@@ -110,7 +109,7 @@ const Sidebar: React.FC = () => {
               <>
                 <button
                   onClick={() => setMenuOpen((v) => !v)}
-                  className="rounded-lg px-2.5 py-1.5 text-sm text-gray-500 hover:bg-gray-100 transition-colors"
+                  className="rounded-xl px-3 py-1.5 text-sm text-[#BDC3C7] hover:text-white hover:bg-[#34495E] transition-all"
                   aria-haspopup="menu"
                   aria-expanded={menuOpen}
                 >
@@ -119,11 +118,11 @@ const Sidebar: React.FC = () => {
                 {menuOpen && (
                   <div
                     role="menu"
-                    className="absolute right-0 mt-2 w-48 overflow-hidden rounded-lg border border-gray-200 bg-white text-sm shadow-lg z-10"
+                    className="absolute right-0 mt-2 w-48 overflow-hidden rounded-xl border border-[#3498DB] bg-[#2C3E50] text-sm shadow-lg z-10"
                   >
                     <button
                       role="menuitem"
-                      className="block w-full px-4 py-2.5 text-left text-white hover:bg-gray-50 transition-colors"
+                      className="block w-full px-4 py-3 text-left text-white hover:bg-[#34495E] transition-all"
                       onClick={() => {
                         setMenuOpen(false);
                         nav("/profile");
@@ -133,7 +132,7 @@ const Sidebar: React.FC = () => {
                     </button>
                     <button
                       role="menuitem"
-                      className="block w-full px-4 py-2.5 text-left text-white hover:bg-gray-50 transition-colors"
+                      className="block w-full px-4 py-3 text-left text-white hover:bg-[#34495E] transition-all"
                       onClick={() => {
                         setMenuOpen(false);
                         logout({
@@ -152,14 +151,15 @@ const Sidebar: React.FC = () => {
 
         {/* New button */}
         <button
-          className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 px-4 py-3 text-white hover:from-blue-700 hover:to-blue-600 shadow-sm transition-colors font-medium"
+          className="w-full rounded-xl bg-white px-5 py-3.5 text-white hover:bg-[#ECF0F1] shadow-md transition-all font-medium flex items-center justify-center gap-2"
           onClick={handleNew}
         >
-          + {t("sidebar.new")}
+          <span className="text-lg">+</span>
+          {t("sidebar.new")}
         </button>
 
         {/* Nav links */}
-        <nav className="mt-3 flex flex-col gap-1.5" aria-label="Primary">
+        <nav className="mt-4 flex flex-col gap-2" aria-label="Primary">
           <NavLink
             to="/"
             end
@@ -167,31 +167,32 @@ const Sidebar: React.FC = () => {
               `${linkBase} ${isActive ? linkActive : ""}`
             }
           >
-            {t("sidebar.home")}
+            <House className="text-white" />
+            <span className="text-white">{t("sidebar.home")}</span>
           </NavLink>
-
           <NavLink
             to="/documents"
             className={({ isActive }) =>
               `${linkBase} ${isActive ? linkActive : ""}`
             }
           >
-            {t("sidebar.documents")}
+            <BookText className="text-white" />
+            <span className="text-white">{t("sidebar.documents")}</span>
           </NavLink>
-
           <NavLink
             to="/templates"
             className={({ isActive }) =>
               `${linkBase} ${isActive ? linkActive : ""}`
             }
           >
-            {t("sidebar.templates")}
+            <StickyNote className="text-white" />
+            <span className="text-white">{t("sidebar.templates")}</span>
           </NavLink>
         </nav>
       </div>
 
       {/* Bottom: selector de idioma */}
-      <div className="mt-4 border-t border-gray-200 pt-4">
+      <div className="mt-4 border-t border-[#34495E] pt-4">
         <LanguageToggle />
       </div>
     </div>

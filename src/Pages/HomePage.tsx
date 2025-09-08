@@ -3,19 +3,15 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth0 } from "@auth0/auth0-react";
 import { useTranslation } from "react-i18next";
-
 import Header from "../components/flow/Header";
 import Sidebar from "../components/flow/Sidebar";
 import TemplateCard from "../components/templates/TemplateCard";
 import DocumentCard from "../components/templates/DocumentCard";
 import NameModal from "../components/templates/NameModal";
-
 import { useApi } from "../hooks/useApi";
 import type { DocumentEntity, Project, TemplateEntity } from "../models";
-import {
-  SAMPLE_TEMPLATE_DATA,
-  SAMPLE_TEMPLATE_TITLE,
-} from "../features/templates/sample";
+import { SAMPLE_TEMPLATE_DATA, SAMPLE_TEMPLATE_TITLE } from "../features/templates/sample";
+import { FolderOpen, PencilLine } from "lucide-react";
 
 function defaultTitle(kind: "diagram" | "template") {
   const d = new Date();
@@ -83,8 +79,7 @@ export default function HomePage() {
       setTemplates(data);
     } catch (e: any) {
       setErrTpls(
-        e?.message ??
-          t("home.loadError", { defaultValue: "Error cargando plantillas" })
+        e?.message ?? t("home.loadError", { defaultValue: "Error cargando plantillas" })
       );
     } finally {
       setLoadingTpls(false);
@@ -102,8 +97,7 @@ export default function HomePage() {
       setDocuments(data);
     } catch (e: any) {
       setErrDocs(
-        e?.message ??
-          t("home.loadError", { defaultValue: "Error cargando documentos" })
+        e?.message ?? t("home.loadError", { defaultValue: "Error cargando documentos" })
       );
     } finally {
       setLoadingDocs(false);
@@ -191,41 +185,41 @@ export default function HomePage() {
 
   // Render por vista (desde Sidebar)
   return (
-    <div className="flex h-screen w-full flex-col bg-gradient-to-br from-gray-50 to-gray-100 text-gray-800">
+    <div className="flex h-screen w-full flex-col bg-gradient-to-br from-blue-50 to-gray-50 text-gray-800">
       <div className="flex min-h-0 flex-1">
-        <aside className="hidden md:block w-[240px] shrink-0 bg-white border-r border-gray-200 p-4 shadow-sm">
+        <aside className="hidden md:block w-[240px] shrink-0 bg-[#2C3E50] border-r border-[#34495E] p-4">
           <Sidebar />
         </aside>
-
         <div className="flex h-full min-w-0 flex-1 flex-col">
           <Header />
-
           <div className="min-w-0 flex-1 overflow-auto p-6">
             {/* ---------- HOME ---------- */}
             {view === "home" && (
               <>
-                <section className="mb-8 flex flex-col md:flex-row items-center justify-between rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+                <section className="mb-8 flex flex-col md:flex-row items-center justify-between rounded-2xl border border-[#3498DB]/20 bg-white p-8 shadow-lg">
                   <div className="mb-4 md:mb-0">
-                    <h1 className="text-3xl font-bold text-gray-900">
+                    <h1 className="text-4xl font-bold text-[#2C3E50]">
                       {t("home.welcome")}
                     </h1>
-                    <p className="mt-2 text-gray-600 max-w-lg">
+                    <p className="mt-3 text-lg text-[#7F8C8D] max-w-lg">
                       {t("home.subtitle")}
                     </p>
                   </div>
-                  <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+                  <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
                     <button
-                      className="px-5 py-3 rounded-lg border border-gray-300 bg-white text-white hover:bg-gray-50 transition-colors shadow-sm font-medium"
+                      className="px-6 py-3 rounded-xl border border-[#3498DB] bg-white text-white hover:bg-[#3498DB] hover:text-white transition-all shadow-sm font-medium flex items-center gap-2"
                       onClick={handleSeedTemplate}
                     >
+                      <FolderOpen className="text-white" />
                       {t("home.loadSample", {
                         defaultValue: "Cargar plantilla de prueba",
                       })}
                     </button>
                     <button
-                      className="px-5 py-3 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-sm font-medium"
+                      className="px-6 py-3 rounded-xl bg-[#2ECC71] text-white hover:bg-[#27AE60] transition-all shadow-md font-medium flex items-center gap-2"
                       onClick={handleCreateBlank}
                     >
+                      <PencilLine className="text-white" />
                       {t("home.blankBoard", {
                         defaultValue: "Crear diagrama en blanco",
                       })}
@@ -234,93 +228,112 @@ export default function HomePage() {
                 </section>
 
                 <section className="mb-8">
-                  <h2 className="text-xl font-semibold mb-4 text-gray-900">
-                    Zonas Clave
-                  </h2>
-                  <div className="flex flex-wrap gap-3">
-                    {(
-                      [
-                        "orgChart",
-                        "mindMap",
-                        "flowchart",
-                        "conceptMap",
-                        "ot",
-                      ] as const
-                    ).map((key) => (
-                      <div
-                        key={key}
-                        className="rounded-xl border border-gray-200 bg-white px-4 py-3 text-gray-700 hover:border-blue-300 hover:shadow-md transition-all cursor-pointer"
-                      >
-                        {t(`sections.${key}`)}
-                      </div>
-                    ))}
-                  </div>
-                </section>
+  <h2 className="text-2xl font-bold mb-5 text-[#2C3E50]">
+    Servicios de seguridad
+  </h2>
+  <div className="flex flex-wrap gap-4">
+    {(
+      [
+        "diagnostico",
+        "prueba-penetracion", 
+        "ponderacion",
+        "analisis-forense",
+      ] as const
+    ).map((key) => {
+      const sectionConfig = {
+        diagnostico: { 
+          image: "images/DiagnosticoSeguridad.png", 
+          text: "Diagnóstico de Seguridad",
+          description: "Con este diagnóstico, se hace una exploración en el sistema y se identifican las diferentes vulnerabilidades este puede llegar a tener, una vez el estudio concluye brindamos las herramientas más efectivas del mercado para ponerle fin a las deficiencias de seguridad que tenga tu compañía."
+        },
+        "prueba-penetracion": { 
+          image: "images/PruebaPenetracion.png", 
+          text: "Prueba de Penetración",
+          description: "Esta prueba pretende verificar qué tan difícil es acceder a los servidores de la compañía, a través de un ataque directo a la infraestructura del servidor o la red desde un punto externo o interno que intentará realizar cambios, denegaciones o extracciones de información."
+        },
+        ponderacion: { 
+          image: "images/PonderacionSeguridad.png", 
+          text: "Ponderación de Seguridad", 
+          description: "La ponderación permite saber si las medidas de control implementadas en la RED (Firewall, WAF, ADC, Antivirus, etc.) están actuando de forma coordinada y correcta frente a posibles amenazas externas, de esta forma podemos saber cuantitativamente el nivel de seguridad de la infraestructura."
+        },
+        "analisis-forense": { 
+          image: "images/AnalisisForense.png", 
+          text: "Análisis Forense",
+          description: "El análisis forense es el proceso de investigación y recopilación de evidencia digital tras un evento de seguridad, como un ciberataque, acceso no autorizado o fraude. Su objetivo es identificar qué ocurrió, como sucedió y quién estuvo involucrado, utilizando tecnologías y técnicas avanzadas."
+        }
+      };
 
-                {/* Sección de accesos rápidos */}
-                <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div
-                    className="p-5 bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
-                    onClick={() => navigate("/templates")}
-                  >
-                    <h3 className="font-semibold text-lg mb-2 text-gray-900">
-                      Plantillas
-                    </h3>
-                    <p className="text-gray-600">
-                      Explora plantillas para empezar rápidamente
-                    </p>
-                  </div>
-                  <div
-                    className="p-5 bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
-                    onClick={() => navigate("/documents")}
-                  >
-                    <h3 className="font-semibold text-lg mb-2 text-gray-900">
-                      Mis documentos
-                    </h3>
-                    <p className="text-gray-600">
-                      Accede a tus diagramas guardados
-                    </p>
-                  </div>
-                </section>
+      return (
+        <div
+          key={key}
+          className="flex-1 min-w-[250px] rounded-xl border border-[#3498DB]/20 bg-white p-4 text-[#7F8C8D] hover:border-[#3498DB] hover:shadow-lg transition-all cursor-pointer hover:-translate-y-1"
+        >
+          <div className="flex flex-col items-center text-center">
+            <div className="mb-3">
+              <img 
+                src={sectionConfig[key].image} 
+                alt={sectionConfig[key].text} 
+                className="w-23 h-20 rounded-lg" 
+              />
+            </div>
+            <div className="flex-1">
+              <span className="text-sm font-medium block mb-2 text-[#2C3E50]">
+                {sectionConfig[key].text}
+              </span>
+              <p className="text-xs text-[#7F8C8D] leading-relaxed">
+                {sectionConfig[key].description}
+              </p>
+            </div>
+          </div>
+        </div>
+      );
+    })}
+  </div>
+</section>
+
+                
               </>
             )}
 
             {/* ---------- TEMPLATES ---------- */}
             {view === "templates" && (
               <>
-                <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-2xl font-bold text-gray-900">
+                <div className="flex justify-between items-center mb-8">
+                  <h2 className="text-3xl font-bold text-[#2C3E50]">
                     Plantillas
                   </h2>
                   <button
-                    className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors text-sm font-medium"
+                    className="px-5 py-2.5 rounded-xl bg-[#2ECC71] text-white hover:bg-[#27AE60] transition-all shadow-md font-medium flex items-center gap-2"
                     onClick={handleSeedTemplate}
                   >
-                    + Nueva plantilla
+                    <span>+</span>
+                    Nueva plantilla
                   </button>
                 </div>
 
                 {loadingTpls && (
-                  <div className="flex justify-center py-10">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  <div className="flex justify-center py-12">
+                    <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#3498DB]"></div>
                   </div>
                 )}
+
                 {errTpls && (
-                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
+                  <div className="bg-red-100 border border-red-300 text-red-700 px-5 py-4 rounded-xl mb-5">
                     {errTpls}
                   </div>
                 )}
 
                 {!loadingTpls && !templates.length && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 text-center">
-                    <p className="text-blue-800 mb-4">
+                  <div className="bg-[#3498DB]/10 border border-[#3498DB]/20 rounded-2xl p-8 text-center">
+                    <div className="text-5xl mb-4">📋</div>
+                    <p className="text-[#2C3E50] mb-5 text-lg">
                       {t("home.noTemplates", {
                         defaultValue:
-                          "No tienes plantillas aún. Usa “Cargar plantilla de prueba” o crea una desde el editor.",
+                          'No tienes plantillas aún. Usa "Cargar plantilla de prueba" o crea una desde el editor.',
                       })}
                     </p>
                     <button
-                      className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                      className="px-5 py-2.5 rounded-xl bg-[#3498DB] text-white hover:bg-[#2980B9] transition-all shadow-md font-medium"
                       onClick={handleSeedTemplate}
                     >
                       Crear plantilla de ejemplo
@@ -329,7 +342,7 @@ export default function HomePage() {
                 )}
 
                 {!!templates.length && (
-                  <section className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
+                  <section className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
                     {templates.map((tpl) => (
                       <TemplateCard
                         key={tpl.id}
@@ -345,36 +358,41 @@ export default function HomePage() {
             {/* ---------- DOCUMENTS ---------- */}
             {view === "documents" && (
               <>
-                <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-2xl font-bold text-gray-900">
+                <div className="flex justify-between items-center mb-8">
+                  <h2 className="text-3xl font-bold text-[#2C3E50]">
                     Mis Documentos
                   </h2>
                   <button
-                    className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors text-sm font-medium"
+                    className="px-5 py-2.5 rounded-xl bg-[#2ECC71] text-white hover:bg-[#27AE60] transition-all shadow-md font-medium flex items-center gap-2"
                     onClick={handleCreateBlank}
                   >
-                    + Nuevo documento
+                    <span>+</span>
+                    Nuevo documento
                   </button>
                 </div>
 
                 {loadingDocs && (
-                  <div className="flex justify-center py-10">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  <div className="flex justify-center py-12">
+                    <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#3498DB]"></div>
                   </div>
                 )}
+
                 {errDocs && (
-                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
+                  <div className="bg-red-100 border border-red-300 text-red-700 px-5 py-4 rounded-xl mb-5">
                     {errDocs}
                   </div>
                 )}
 
                 {!loadingDocs && !documents.length && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 text-center">
-                    <p className="text-blue-800 mb-4">
+                  <div className="bg-[#3498DB]/10 border border-[#3498DB]/20 rounded-2xl p-8 text-center">
+                    <div className="text-5xl rounded-lg bg-blue-100 p-3 inline-block">
+                      <FolderOpen className="w-25 h-25"/>
+                    </div>
+                    <p className="text-[#2C3E50] mb-5 text-lg">
                       Aún no tienes documentos.
                     </p>
                     <button
-                      className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                      className="px-5 py-2.5 rounded-xl bg-[#3498DB] text-white hover:bg-[#2980B9] transition-all shadow-md font-medium"
                       onClick={handleCreateBlank}
                     >
                       Crear primer documento
@@ -383,14 +401,12 @@ export default function HomePage() {
                 )}
 
                 {!!documents.length && (
-                  <section className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
+                  <section className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
                     {documents.map((doc) => (
                       <DocumentCard
                         key={doc.id}
                         doc={doc as any}
-                        onOpen={(d: DocumentEntity) =>
-                          navigate(`/Board/${d.id}`)
-                        }
+                        onOpen={(d: DocumentEntity) => navigate(`/Board/${d.id}`)}
                         onDeleted={handleCardDeleted}
                       />
                     ))}
