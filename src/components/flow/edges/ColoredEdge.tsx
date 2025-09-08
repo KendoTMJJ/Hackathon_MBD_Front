@@ -7,14 +7,14 @@ import {
 
 // Tipos de líneas de colores para diferentes propósitos
 export const EDGE_COLORS = {
-  // Seguridad
-  security: "#10b981", // Verde - Tráfico seguro
-  // Zonas de red
-  dmz: "#F59E0B", // Naranja - DMZ
-  lan: "#22F0F0", // Azul - LAN
-  datacenter: "#E300A4", // Púrpura - Data Center
-  cloud: "#707070", // Verde - Cloud
-  ot: "#992E08", // Naranja oscuro - OT/Industrial
+  security: "#E51212",
+  servidores: "#E3ED2B",
+
+  dmz: "#F59E0B",
+  lan: "#22F0F0",
+  datacenter: "#E300A4",
+  cloud: "#707070",
+  ot: "#992E08",
 } as const;
 
 export type EdgeColor = keyof typeof EDGE_COLORS;

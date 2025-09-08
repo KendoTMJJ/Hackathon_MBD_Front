@@ -24,6 +24,7 @@ export default function SubZoneModal({
     id: string;
     name: string;
     description?: string;
+    caracteristics?: string;
     color: string;
     icon?: string;
   };
@@ -195,9 +196,7 @@ export default function SubZoneModal({
                 <div className="rounded-lg border border-white/15 p-4 mb-6">
                   <h4 className="text-lg font-medium mb-3">Características</h4>
                   <p className="text-white/60">
-                    Información detallada sobre esta subzona, tecnologías
-                    recomendadas, mejores prácticas de seguridad y
-                    configuración.
+                    {activeSub.caracteristics}
                   </p>
                 </div>
 

@@ -6,6 +6,7 @@ import {
   Eye,
   Share2,
   Info,
+  // ImageIcon,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import type ViewProps from "./props/props";
@@ -28,7 +29,8 @@ export default function Toolbar({
   onOpenInfo,
 
   onExportPdf,
-}: ViewProps) {
+}: // onExportImg,
+ViewProps) {
   const nav = useNavigate();
 
   const btnBase =
@@ -142,6 +144,15 @@ export default function Toolbar({
           <Download size={18} />
           <span className="hidden sm:inline">Exportar</span>
         </button>
+
+        {/* <button
+          onClick={onExportImg}
+          className={[btnBase, ghostBtn].join(" ")}
+          title="Exportar imagen del diagrama (PNG)"
+        >
+          <ImageIcon size={18} />
+          <span className="hidden sm:inline">Exportar PNG</span>
+        </button> */}
 
         {/* Actualizar plantilla (modo plantilla) */}
         {canUpdateTemplate && (

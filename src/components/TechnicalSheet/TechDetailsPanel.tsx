@@ -17,7 +17,8 @@ export type TechLike = {
   id?: string;
   name?: string;
   imageUrl?: string;
-  provider?: string;
+  provider?: string; // Keep legacy field for compatibility
+  providers?: string[]; // Add new providers array field
   description?: string;
   tags?: string[];
   ZoneKind?: string;
@@ -212,6 +213,16 @@ export default function TechDetailsPanel({ tech, onClose }: Props) {
 
   if (!tech) return null;
 
+  const getAllProviders = () => {
+    const providers = tech.providers || [];
+    if (tech.provider && !providers.includes(tech.provider)) {
+      providers.push(tech.provider);
+    }
+    return providers;
+  };
+
+  const allProviders = getAllProviders();
+
   return (
     <div
       className={`fixed inset-0 z-50 transition-opacity duration-300 ${
@@ -235,7 +246,7 @@ export default function TechDetailsPanel({ tech, onClose }: Props) {
           <div className="flex items-center justify-center w-14 h-14 bg-blue-50 rounded-xl border border-blue-200 shadow-sm">
             {tech.imageUrl ? (
               <img
-                src={tech.imageUrl}
+                src={tech.imageUrl || "/placeholder.svg"}
                 alt={tech.name || "tech"}
                 className="h-8 w-8 object-contain"
               />
@@ -252,9 +263,11 @@ export default function TechDetailsPanel({ tech, onClose }: Props) {
             </h3>
             <div className="flex items-center gap-2 mt-1">
               <ZoneBadge zone={tech.ZoneKind} />
-              {tech.provider && (
+              {allProviders.length > 0 && (
                 <span className="text-sm text-gray-600 truncate">
-                  por {tech.provider}
+                  {allProviders.length === 1
+                    ? `por ${allProviders[0]}`
+                    : `${allProviders.length} proveedores`}
                 </span>
               )}
             </div>
@@ -339,11 +352,33 @@ export default function TechDetailsPanel({ tech, onClose }: Props) {
             </section>
           ) : null}
 
+          {allProviders.length > 0 && (
+            <section className="space-y-3">
+              <h4 className="text-gray-900 font-semibold text-lg flex items-center gap-3">
+                <div className="w-2 h-6 bg-orange-500 rounded-full"></div>
+                {allProviders.length === 1 ? "Proveedor" : "Proveedores"}
+              </h4>
+              <div className="grid gap-2">
+                {allProviders.map((provider, i) => (
+                  <div
+                    key={i}
+                    className="flex items-center gap-3 p-3 bg-gradient-to-r from-orange-50 to-amber-50 rounded-xl border border-orange-200 hover:shadow-sm transition-shadow"
+                  >
+                    <div className="w-2 h-2 bg-orange-500 rounded-full flex-shrink-0"></div>
+                    <span className="text-sm font-medium text-gray-800">
+                      {provider}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
           {/* Tags */}
           {tech.tags?.length ? (
             <section className="space-y-3">
               <h4 className="text-gray-900 font-semibold text-lg flex items-center gap-3">
-                <div className="w-2 h-6 bg-orange-500 rounded-full"></div>
+                <div className="w-2 h-6 bg-gray-500 rounded-full"></div>
                 Categorías
               </h4>
               <div className="flex flex-wrap gap-2">
