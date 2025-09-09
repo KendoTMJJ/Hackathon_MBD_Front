@@ -1,14 +1,20 @@
 // src/App.tsx
 import { Routes, Route, Navigate } from "react-router-dom";
-import HomePage from "./Pages/HomePage";
-import BoardPage from "./Pages/BoardPage";
-import ProfilePage from "./Pages/ProfilePage";
-import LandingPage from "./Pages/LandingPage/LandingPage";
-import RequireAuth from "./components/auth/RequireAuth";
-import ThemeToggle from "./components/home/ThemeToggle";
-import SharedDocumentPage from "./pages/SharedDocumentPage"; // ⬅️ NUEVO
+// import HomePage from "./Pages/HomePage";
+// import BoardPage from "./Pages/BoardPage";
+// import ProfilePage from "./Pages/ProfilePage";
+// import LandingPage from "./Pages/LandingPage/LandingPage";
+// import RequireAuth from "./components/auth/RequireAuth";
+// import ThemeToggle from "./components/home/ThemeToggle";
+// import SharedDocumentPage from "./pages/SharedDocumentPage"; // ⬅️ NUEVO
 
 import "./theme.css";
+import HomePage from "./pages/HomePage";
+import SharedDocumentPage from "./pages/SharedDocumentPage";
+import LandingPage from "./pages/LandingPage/LandingPage";
+import RequireAuth from "./components/auth/RequireAuth";
+import BoardPage from "./pages/BoardPage";
+import ProfilePage from "./pages/ProfilePage";
 
 export default function App() {
   return (
@@ -25,17 +31,14 @@ export default function App() {
           <Route path="/shared/:token" element={<SharedDocumentPage />} />{" "}
           {/* ⬅️ NUEVO */}
           {/* Protegido */}
-=======
+          =======
           {/* Landing principal */}
           <Route path="/" element={<LandingPage />} />
-
           {/* Home (opcional) */}
           <Route path="/home" element={<HomePage />} />
           <Route path="/templates" element={<HomePage />} />
           <Route path="/documents" element={<HomePage />} />
-
           {/* Board protegido */}
->>>>>>> ea76df76abe91c5a5d3293577789f62ff7746924
           <Route
             path="/Board/:documentId"
             element={
@@ -52,11 +55,7 @@ export default function App() {
               </RequireAuth>
             }
           />
-<<<<<<< HEAD
-=======
-
           {/* Perfil protegido */}
->>>>>>> ea76df76abe91c5a5d3293577789f62ff7746924
           <Route
             path="/profile"
             element={
