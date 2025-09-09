@@ -1,12 +1,13 @@
-// App.tsx
+// src/App.tsx
 import { Routes, Route, Navigate } from "react-router-dom";
 import HomePage from "./pages/HomePage";
 import BoardPage from "./pages/BoardPage";
 import ProfilePage from "./pages/ProfilePage";
 import RequireAuth from "./components/auth/RequireAuth";
-// import SharedDocument from "./pages/SharedDocumentPage";
-import "./theme.css";
 import ThemeToggle from "./components/home/ThemeToggle";
+import SharedDocumentPage from "./pages/SharedDocumentPage"; // ⬅️ NUEVO
+
+import "./theme.css";
 
 export default function App() {
   return (
@@ -14,10 +15,13 @@ export default function App() {
       <main className="h-full">
         <ThemeToggle />
         <Routes>
-          {/* Home público: lista proyectos y plantillas */}
+          {/* Público */}
           <Route path="/" element={<HomePage />} />
-
-          {/* Board con :documentId (recomendado) */}
+          <Route path="/templates" element={<HomePage />} />
+          <Route path="/documents" element={<HomePage />} />
+          <Route path="/shared/:token" element={<SharedDocumentPage />} />{" "}
+          {/* ⬅️ NUEVO */}
+          {/* Protegido */}
           <Route
             path="/Board/:documentId"
             element={
@@ -26,8 +30,6 @@ export default function App() {
               </RequireAuth>
             }
           />
-
-          {/* OPCIONAL: Board leyendo ?doc=<id> o ?id=<id> */}
           <Route
             path="/Board"
             element={
@@ -36,8 +38,6 @@ export default function App() {
               </RequireAuth>
             }
           />
-
-          {/* Perfil (protegido) */}
           <Route
             path="/profile"
             element={
@@ -46,14 +46,8 @@ export default function App() {
               </RequireAuth>
             }
           />
-
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />
-
-          <Route path="/" element={<HomePage />} />
-          <Route path="/templates" element={<HomePage />} />
-          <Route path="/documents" element={<HomePage />} />
-          {/* <Route path="/shared/:token" element={<SharedDocument />} /> */}
         </Routes>
       </main>
     </div>
