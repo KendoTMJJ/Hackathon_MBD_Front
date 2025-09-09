@@ -1,8 +1,9 @@
+// src/components/collab/PresenceChips.tsx
 export default function PresenceChips({
-  users,
+  users = [], // ⬅️ valor por defecto
   status,
 }: {
-  users: { id: string; name: string; color: string }[];
+  users?: { id: string; name: string; color: string }[]; // ⬅️ opcional
   status: "connected" | "connecting" | "disconnected" | "error";
 }) {
   const dot =

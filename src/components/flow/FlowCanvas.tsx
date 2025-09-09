@@ -1690,7 +1690,7 @@ export default function FlowCanvas({
               </ReactFlow>
 
               {/* Presencia visual integrada */}
-              <PresenceChips users={presenceUsers} status={connStatus} />
+              <PresenceChips users={presenceUsers ?? []} status={connStatus} />
               <CursorLayer cursors={remoteCursors} viewport={viewport} />
 
               <TechDetailsPanel
