@@ -6,9 +6,9 @@ const LOGO_FULL = "/images/LOGO.png";
 const LOGO_ISO = "/images/LOGO1.png";
 const HERO_IMG = "/images/hero.jpg";
 const HERO_MP4 = "/images/hero.mp4";
-const SAMPLE_1 = "/images/home.png";
-const SAMPLE_2 = "/images/documentos.png";
-const SAMPLE_3 = "/images/plantillas.png";
+const SAMPLE_1 = "/images/Home.png";
+const SAMPLE_2 = "/images/Documentos.png";
+const SAMPLE_3 = "/images/Plantillas.png";
 const USE_VIDEO_HERO = true;
 
 /* =========================
