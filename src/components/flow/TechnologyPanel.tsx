@@ -209,7 +209,7 @@ export const TechnologyPanel: React.FC<SidebarProps> = ({
       {/* Lista */}
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 space-y-3">
         {filteredZones.map((z) => {
-          const Icon = zoneIcon(z.id);
+          // const Icon = zoneIcon(z.id);
           const isOpen = openZones.has(z.id);
           const subzones = SUBZONES_BY_ZONE[z.id]; // undefined si no tiene
 
@@ -228,13 +228,6 @@ export const TechnologyPanel: React.FC<SidebarProps> = ({
                 aria-expanded={isOpen}
                 aria-controls={`zone-panel-${z.id}`}
               >
-                <div
-                  className="p-2 rounded-lg"
-                  style={{ backgroundColor: `${z.color}15`, color: z.color }}
-                >
-                  <Icon size={16} />
-                </div>
-
                 <div className="flex-1 min-w-0 text-left">
                   <div className="text-sm font-medium text-white truncate">
                     {z.name}
@@ -242,6 +235,13 @@ export const TechnologyPanel: React.FC<SidebarProps> = ({
                   <div className="text-xs text-gray-400 truncate">
                     {z.description}
                   </div>
+                </div>
+                <div className="flex items-center justify-center p-2 rounded-lg">
+                  <img
+                    src={z.image}
+                    alt={z.name}
+                    className="h-7 object-contain opacity-50"
+                  />
                 </div>
 
                 {/* Drag de la zona principal (opcional) */}
@@ -260,11 +260,13 @@ export const TechnologyPanel: React.FC<SidebarProps> = ({
                   </div>
                 )}
 
-                {isOpen ? (
-                  <ChevronDown className="h-4 w-4 text-gray-500" />
-                ) : (
-                  <ChevronRight className="h-4 w-4 text-gray-500" />
-                )}
+                <div className="flex items-center">
+                  {isOpen ? (
+                    <ChevronDown className="h-4 w-4 text-gray-500" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4 text-gray-500" />
+                  )}
+                </div>
               </button>
 
               {/* Panel */}

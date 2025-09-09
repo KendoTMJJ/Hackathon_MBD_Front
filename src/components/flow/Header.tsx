@@ -1,3 +1,4 @@
+// src/components/flow/Header.tsx
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -7,32 +8,26 @@ const Header: React.FC = () => {
   const { t } = useTranslation();
 
   return (
-    <header className="flex items-center justify-between border-b border-gray-200 bg-white px-6 py-4 shadow-sm">
+    <header className="flex items-center justify-between bg-[#2C3E50] px-6 py-4 shadow-lg">
       <div
         className="flex cursor-pointer items-center gap-3"
         onClick={() => nav("/")}
         aria-label="Home"
       >
-        <span className="grid h-9 w-12 place-items-center select-none rounded-lg bg-gradient-to-r from-blue-600 to-blue-500 font-bold text-white shadow-sm">
-          BHA
-        </span>
-        <span className="font-semibold tracking-tight text-gray-900">
-          Black Hat Archetype
-        </span>
+      <img
+        src="/images/logo.png"
+        alt="Black Hat Archetype"
+        className="h-13 object-contain rounded-lg"
+      />
       </div>
-
-      <div className="flex max-w-full items-center gap-3">
-        {/* <input
-          className="hidden md:block w-[360px] max-w-[40vw] rounded-xl border border-gray-300 bg-gray-50 px-4 py-2.5 text-gray-900 outline-none placeholder:text-gray-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-colors"
-          placeholder={t("header.searchPlaceholder")!}
-          aria-label={t("header.searchPlaceholder")!}
-        /> */}
+      <div className="flex max-w-full items-center gap-4">
         <button
-          onClick={() => nav("/Board")} // sin id ni POST
+          onClick={() => nav("/Board")}
           title={t("header.new")!}
           aria-label={t("header.new")!}
-          className="rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 shadow-sm transition-colors font-medium"
+          className="rounded-xl border border-[#3498DB] bg-[#3498DB] px-5 py-2.5 text-white hover:bg-[#2980B9] focus:outline-none focus:ring-2 focus:ring-[#3498DB]/20 shadow-sm transition-all font-medium flex items-center gap-2"
         >
+          <span>+</span>
           {t("header.new")}
         </button>
       </div>

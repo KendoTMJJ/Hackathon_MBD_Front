@@ -1,3 +1,4 @@
+// src/components/templates/TemplateCard.tsx
 import "@xyflow/react/dist/style.css";
 import { ReactFlow, Background } from "@xyflow/react";
 import { useMemo, useState } from "react";
@@ -11,9 +12,7 @@ function normalizeDoc(raw: any) {
     id: raw.id ?? raw.cod_document,
     title: raw.title ?? raw.title_template ?? raw.title_document,
     kind: raw.kind ?? raw.kind_template ?? raw.kind_document,
-    data: raw.data ??
-      raw.data_template ??
-      raw.data_document ?? { nodes: [], edges: [] },
+    data: raw.data ?? raw.data_template ?? raw.data_document ?? { nodes: [], edges: [] },
     projectId: raw.projectId ?? raw.project_id,
     createdAt: raw.createdAt ?? raw.created_at,
     updatedAt: raw.updatedAt ?? raw.updated_at,
@@ -50,12 +49,12 @@ export default function TemplateCard({ tpl, onUse }: Props) {
 
   return (
     <article
-      className="group overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm hover:shadow-lg transition-all duration-300"
+      className="group overflow-hidden rounded-2xl border border-[#3498DB]/20 bg-white shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
       {/* Preview con overlay */}
-      <div className="relative h-[140px] border-b border-gray-200 bg-gradient-to-br from-gray-50 to-gray-100 overflow-hidden">
+      <div className="relative h-[160px] border-b border-[#3498DB]/20 bg-gradient-to-br from-[#3498DB]/5 to-white overflow-hidden">
         <div className="absolute inset-0">
           <ReactFlow
             nodes={nodes}
@@ -70,41 +69,40 @@ export default function TemplateCard({ tpl, onUse }: Props) {
             zoomOnScroll={false}
             panOnDrag={false}
           >
-            <Background color="#e5e7eb" gap={16} />
+            <Background color="#3498DB10" gap={16} />
           </ReactFlow>
         </div>
 
         {/* Overlay con efecto de hover */}
         <div
-          className={`absolute inset-0 bg-blue-600 bg-opacity-0 group-hover:bg-opacity-10 transition-all duration-300 ${
+          className={`absolute inset-0 bg-[#3498DB] bg-opacity-0 group-hover:bg-opacity-10 transition-all duration-300 ${
             isHovered ? "bg-opacity-10" : ""
           }`}
         ></div>
 
         {/* Badge de tipo */}
-        <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm rounded-full px-2.5 py-1 text-xs font-medium text-gray-700 shadow-sm">
+        <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm rounded-full px-3 py-1.5 text-xs font-medium text-[#3498DB] shadow-sm">
           {doc.kind || "Template"}
         </div>
       </div>
 
       {/* Contenido de la tarjeta */}
-      <div className="p-4">
-        <h3 className="font-semibold text-gray-900 text-sm line-clamp-2 leading-tight mb-2">
+      <div className="p-5">
+        <h3 className="font-semibold text-[#2C3E50] text-base line-clamp-2 leading-tight mb-3">
           {doc.title}
         </h3>
 
         {/* Metadatos */}
-        <div className="flex items-center text-xs text-gray-500 mb-4">
-          <div className="flex items-center mr-3">
-            <FileText size={12} className="mr-1" />
+        <div className="flex items-center text-sm text-[#7F8C8D] mb-5">
+          <div className="flex items-center mr-4">
+            <FileText size={14} className="mr-1.5" />
             <span>
               {nodeCount} nodos • {edgeCount} conexiones
             </span>
           </div>
-
           {doc.updatedAt && (
             <div className="flex items-center">
-              <Clock size={12} className="mr-1" />
+              <Clock size={14} className="mr-1.5" />
               <span>{formatDate(doc.updatedAt)}</span>
             </div>
           )}
@@ -113,12 +111,9 @@ export default function TemplateCard({ tpl, onUse }: Props) {
         {/* Botón de uso */}
         <button
           onClick={() => onUse(doc)}
-          className="w-full rounded-lg bg-blue-600 px-3 py-2.5 text-sm text-white hover:bg-blue-700 transition-colors font-medium flex items-center justify-center gap-2 group/btn"
+          className="w-full rounded-xl bg-[#3498DB] px-4 py-3 text-white hover:bg-[#2980B9] transition-all font-medium flex items-center justify-center gap-2 group/btn"
         >
-          <Plus
-            size={16}
-            className="transition-transform group-hover/btn:scale-110"
-          />
+          <Plus size={18} className="transition-transform group-hover/btn:scale-110" />
           {t("use")}
         </button>
       </div>

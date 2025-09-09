@@ -49,9 +49,11 @@ ViewProps) {
           aria-label="Home"
           title="Volver al inicio"
         >
-          <span className="grid h-8 w-10 place-items-center select-none rounded-lg bg-gradient-to-r from-blue-600 to-blue-500 font-bold text-white shadow-sm">
-            BHA
-          </span>
+          <img
+            src="/images/logo.png"
+            alt="Black Hat Archetype"
+            className="h-11 object-contain rounded-lg"
+          />
           <span className="font-bold tracking-tight text-lg text-gray-900">
             Black Hat Archetype
           </span>
