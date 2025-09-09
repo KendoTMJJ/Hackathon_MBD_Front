@@ -161,11 +161,11 @@ export default function SubZoneModal({
           {/* Contenido principal - Imagen que ocupa todo el espacio */}
           <section className="col-span-8 relative">
             {/* Imagen de la zona que ocupa todo el espacio */}
-            <div className="h-full w-full overflow-hidden">
+            <div className="h-full w-full overflow-hidden flex items-center justify-center">
               <img
                 src={zoneMeta.img}
                 alt={`Imagen de la zona ${zoneMeta.name}`}
-                className="h-full w-full object-cover"
+                className="max-h-full max-w-full object-contain"
               />
             </div>
 
@@ -195,9 +195,7 @@ export default function SubZoneModal({
 
                 <div className="rounded-lg border border-white/15 p-4 mb-6">
                   <h4 className="text-lg font-medium mb-3">Características</h4>
-                  <p className="text-white/60">
-                    {activeSub.caracteristics}
-                  </p>
+                  <p className="text-white/60">{activeSub.caracteristics}</p>
                 </div>
 
                 <div className="mt-auto flex justify-end">
