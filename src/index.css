@@ -71,7 +71,7 @@ button:focus-visible {
     color: #747bff;
   }
   button {
-    background-color: #f9f9f9;
+    background-color: #333333;
   }
 }
 
@@ -87,7 +87,7 @@ button:focus-visible {
   transform: translateX(-50%);
   opacity: 0;
   pointer-events: none;
-  transition: opacity .15s ease, transform .15s ease;
+  transition: opacity 0.15s ease, transform 0.15s ease;
   z-index: 9999;
 }
 
@@ -98,17 +98,17 @@ button:focus-visible {
   font-size: 12px;
   line-height: 1;
   color: #fff;
-  background: rgba(17, 24, 39, .96); /* #111827 */
+  background: rgba(17, 24, 39, 0.96); /* #111827 */
   border-radius: 8px;
   white-space: nowrap;
-  box-shadow: 0 6px 18px rgba(0,0,0,.18);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
 }
 
 .has-tip[data-tip]::before {
   content: "";
   bottom: calc(100% + 6px);
   border: 6px solid transparent;
-  border-top-color: rgba(17, 24, 39, .96);
+  border-top-color: rgba(17, 24, 39, 0.96);
 }
 
 .has-tip:hover[data-tip]::after,
@@ -118,34 +118,36 @@ button:focus-visible {
 }
 
 /* === Toolbar capsules: ignoran estilos globales === */
-.toolbar button.capsule { all: unset; }
+.toolbar button.capsule {
+  all: unset;
+}
 .toolbar button.capsule {
   display: inline-flex;
   align-items: center;
-  gap: .25rem;
-  padding: .5rem .75rem;
+  gap: 0.25rem;
+  padding: 0.5rem 0.75rem;
   border-radius: 12px;
   border: 1px solid transparent;
-  background: #2F2F2F;         /* oscuro por defecto */
+  background: #2f2f2f; /* oscuro por defecto */
   color: #fff;
-  box-shadow: 0 1px 2px rgba(0,0,0,.08);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
   cursor: pointer;
-  transition: background .2s, color .2s, border-color .2s, box-shadow .2s;
+  transition: background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s;
 }
 .toolbar button.capsule:hover {
-  background: #fff;             /* BLANCO en hover */
+  background: #fff; /* BLANCO en hover */
   color: #111;
   border-color: #e5e7eb;
-  box-shadow: 0 4px 10px rgba(0,0,0,.12);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
 }
 .toolbar button.capsule:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px rgba(255,255,255,.85);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.85);
 }
 
 /* variantes */
 .toolbar .capsule--primary {
-  background: #2563eb;          /* azul solo cuando hay cambios */
+  background: #2563eb; /* azul solo cuando hay cambios */
   border-color: #2563eb;
   color: #fff;
 }

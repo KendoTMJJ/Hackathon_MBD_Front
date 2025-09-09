@@ -1,9 +1,9 @@
 // src/hooks/useCollab.ts
 import { useAuth0 } from "@auth0/auth0-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Socket } from "socket.io-client";
 import { useDocumentStore } from "./useDocument";
-import { createAuthedSocket } from "../lib/socket";
+import { createAuthedSocket, setSocketAuth } from "../lib/socket";
 
 /** Presencia remota */
 export type Presence = {
@@ -13,9 +13,12 @@ export type Presence = {
   selection?: any;
 };
 
-/** Estado de colaboración */
+/** Snapshot colaborativo */
+type SnapshotState = { data: any; version: number };
+
+/** Estado del hook */
 export interface CollaborationState {
-  snapshot: { data: any; version: number } | null;
+  snapshot: SnapshotState | null;
   permission: "read" | "edit" | null;
   sendChange: (ops: any) => void;
   sendPresence: (presence: {
@@ -48,22 +51,21 @@ function throttle<T extends (...args: any[]) => void>(fn: T, wait = 80): T {
   } as T;
 }
 
+type ChangeAck = { ok: true; version: number };
+
 export function useCollab(documentId?: string): CollaborationState {
   const { getAccessTokenSilently } = useAuth0();
   const sref = useRef<Socket | null>(null);
 
   const [peers, setPeers] = useState<Record<string, Presence>>({});
-  const [snapshot, setSnapshot] = useState<{
-    data: any;
-    version: number;
-  } | null>(null);
+  const [snapshot, setSnapshot] = useState<SnapshotState | null>(null);
   const [permission, setPermission] = useState<"read" | "edit" | null>(null);
 
-  // Acceso directo a Zustand (sin usar hook dentro del efecto)
+  // Acceso directo a Zustand
   const getStore = useDocumentStore.getState;
   const setDoc = useDocumentStore.getState().setDoc;
 
-  // Última presencia enviada (para re-emitir en reconexiones e inmediatamente tras join)
+  // Última presencia enviada (re-emitir en reconexión)
   const lastPresence = useRef<{
     cursor?: { x: number; y: number };
     selection?: any;
@@ -76,10 +78,15 @@ export function useCollab(documentId?: string): CollaborationState {
     let closed = false;
 
     (async () => {
-      // 1) JWT
-      const jwt = await getAccessTokenSilently({
-        authorizationParams: { audience: AUDIENCE },
-      });
+      // 1) Access token para tu API (Auth0)
+      let jwt = "";
+      try {
+        jwt = await getAccessTokenSilently({
+          authorizationParams: { audience: AUDIENCE },
+        });
+      } catch (e) {
+        console.warn("[collab] no se pudo obtener token:", e);
+      }
 
       // 2) conectar socket
       const s = createAuthedSocket(jwt);
@@ -88,17 +95,17 @@ export function useCollab(documentId?: string): CollaborationState {
       s.on("connect", () => {
         if (closed) return;
 
-        // 3) join
+        // 3) join con ACK
         s.emit("join", { documentId }, (res: any) => {
           if (closed) return;
           if (!res?.ok) return;
 
-          // Snapshot/permission del server
-          const snap = res.snapshot || null;
+          // Snapshot/permiso del server
+          const snap = (res.snapshot || null) as SnapshotState | null;
           setSnapshot(snap);
-          setPermission(res.permission || "edit");
+          setPermission((res.permission as "read" | "edit") || "edit");
 
-          // Hidratar el store inmediatamente para que ReactFlow pinte YA
+          // Hidratar store para que el canvas pinte YA
           const current = getStore().doc;
           if (current) {
             setDoc({
@@ -108,7 +115,7 @@ export function useCollab(documentId?: string): CollaborationState {
             });
           }
 
-          // Presencia inicial (aunque el usuario aún no mueva el mouse)
+          // Presencia inicial
           const p = lastPresence.current || {};
           s.emit("presence", { documentId, ...p, timestamp: Date.now() });
         });
@@ -134,7 +141,7 @@ export function useCollab(documentId?: string): CollaborationState {
         });
       });
 
-      // 5) cambios remotos — hidratar store (fuente de verdad del canvas)
+      // 5) cambios remotos → hidratar store y snapshot
       s.on(
         "change",
         (msg: {
@@ -155,16 +162,20 @@ export function useCollab(documentId?: string): CollaborationState {
             (next as any).title = msg.ops.title;
 
           setDoc(next);
-          // Mantén el snapshot alineado para clientes que lo lean
-          setSnapshot((prev) => {
-            const base = prev ?? { data: { nodes: [], edges: [] }, version: 0 };
-            const snext = {
+
+          // Mantener snapshot coherente
+          setSnapshot((prev: SnapshotState | null): SnapshotState => {
+            const base: SnapshotState = prev ?? {
+              data: { nodes: [], edges: [] },
+              version: 0,
+            };
+            const snext: SnapshotState = {
               ...base,
               version: msg.version,
               data: { ...(base.data ?? {}) },
             };
-            if (msg.ops?.nodes) snext.data.nodes = msg.ops.nodes;
-            if (msg.ops?.edges) snext.data.edges = msg.ops.edges;
+            if (msg.ops?.nodes) (snext.data as any).nodes = msg.ops.nodes;
+            if (msg.ops?.edges) (snext.data as any).edges = msg.ops.edges;
             if (typeof msg.ops?.title === "string")
               (snext as any).title = msg.ops.title;
             return snext;
@@ -172,14 +183,30 @@ export function useCollab(documentId?: string): CollaborationState {
         }
       );
 
-      // 6) reconexión — reemitir presencia
+      // 6) Reintentos de reconexión → refrescar token y ponerlo en auth
+      s.io.on("reconnect_attempt", async () => {
+        const newJwt = await getAccessTokenSilently({
+          authorizationParams: { audience: AUDIENCE },
+        });
+        setSocketAuth({ token: newJwt }); // <- actualiza el auth del socket
+      });
+
+      // Re-conectado: reemitir presencia
       s.io.on("reconnect", () => {
         const p = lastPresence.current || {};
         s.emit("presence", { documentId, ...p, timestamp: Date.now() });
       });
 
-      s.on("connect_error", (e) => {
-        console.warn("[collab] connect_error", e.message);
+      s.on("connect_error", async (e: any) => {
+        console.warn("[collab] connect_error", e?.message || e);
+        try {
+          const newJwt = await getAccessTokenSilently({
+            authorizationParams: { audience: AUDIENCE },
+          });
+          (s as any).auth = { ...(s as any).auth, token: newJwt };
+        } catch (err) {
+          console.warn("[collab] unable to refresh token on error:", err);
+        }
       });
 
       s.on("disconnect", () => {
@@ -199,16 +226,39 @@ export function useCollab(documentId?: string): CollaborationState {
     };
   }, [documentId, getAccessTokenSilently]);
 
-  /** Enviar cambio (patch) */
+  /** Enviar cambio con ACK de versión (soluciona el error de tipos) */
   const sendChange = useCallback(
     (ops: any) => {
       if (!documentId || !sref.current) return;
-      // Usa la versión del store (si existe) o la del snapshot
+      const socket = sref.current;
+
+      // Versión actual (store o snapshot)
       const current = getStore().doc;
       const version = current?.version ?? snapshot?.version ?? 0;
-      sref.current.emit("change", { documentId, version, ops });
+
+      socket.emit(
+        "change",
+        { documentId, version, ops },
+        (ack: ChangeAck | undefined) => {
+          if (!ack || !ack.ok) return;
+          const newVersion = ack.version;
+
+          // Avanza versión local del emisor para mantenerse en sync
+          const cur = getStore().doc;
+          if (cur) {
+            setDoc({ ...cur, version: newVersion });
+          }
+          setSnapshot((prev: SnapshotState | null): SnapshotState => {
+            const base: SnapshotState = prev ?? {
+              data: { nodes: [], edges: [] },
+              version: 0,
+            };
+            return { ...base, version: newVersion };
+          });
+        }
+      );
     },
-    [documentId, snapshot]
+    [documentId, snapshot, getStore, setDoc]
   );
 
   /** Enviar presencia (throttle interno) */
@@ -221,7 +271,10 @@ export function useCollab(documentId?: string): CollaborationState {
     [documentId]
   );
 
-  const sendPresence = useRef(throttle(_sendPresence, 80)).current;
+  const sendPresence = useMemo(
+    () => throttle(_sendPresence, 80),
+    [_sendPresence]
+  );
 
   return { snapshot, permission, sendChange, sendPresence, peers };
 }

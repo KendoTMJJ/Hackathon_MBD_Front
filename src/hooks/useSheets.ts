@@ -140,7 +140,6 @@ export const useSheetStore = create<State & Actions>((set, get) => ({
 
 /* ============ HELPERS DE API (operaciones fuera del editor) ============ */
 
-// src/hooks/useSheets.ts
 export function useSheets() {
   const api = useApi();
 
@@ -159,6 +158,37 @@ export function useSheets() {
         }
         console.error("[useSheets] listByDocument error:", e);
         throw e;
+      }
+    },
+
+    /** 👇 NUEVO: lista hojas cuando se accede con token de share */
+    async listByDocumentShared(
+      documentId: string,
+      sharedToken?: string
+    ): Promise<SheetEntity[]> {
+      // sin token: intenta la ruta normal
+      if (!sharedToken) return await this.listByDocument(documentId);
+
+      // 1) ruta típica bajo /share
+      try {
+        const { data } = await api.get(
+          `/share/documents/${documentId}/sheets`,
+          { params: { token: sharedToken } }
+        );
+        const arr = Array.isArray(data) ? data : data?.items ?? [];
+        return arr.map(normalizeSheet);
+      } catch (e1) {
+        // 2) fallback: param en la ruta normal
+        try {
+          const { data } = await api.get(`/documents/${documentId}/sheets`, {
+            params: { sharedToken },
+          });
+          const arr = Array.isArray(data) ? data : data?.items ?? [];
+          return arr.map(normalizeSheet);
+        } catch (e2) {
+          console.error("[useSheets] listByDocumentShared error:", e2);
+          throw e2;
+        }
       }
     },
 

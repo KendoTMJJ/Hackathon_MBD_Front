@@ -111,21 +111,17 @@ export default function FlowCanvas({
   const lastSnapRef = useRef<string>("");
   const canvasRef = useRef<HTMLDivElement>(null);
 
-  // 👇 track versión última aplicada desde snapshot para evitar re-aplicar
+  // Para evitar re-aplicar el mismo snapshot
   const lastAppliedVersionRef = useRef<number>(-1);
 
-  // Estado del viewport para CursorLayer
+  // Viewport (para el CursorLayer)
   const [viewport, setViewport] = useState<{
     x: number;
     y: number;
     zoom: number;
-  }>({
-    x: 0,
-    y: 0,
-    zoom: 1,
-  });
+  }>({ x: 0, y: 0, zoom: 1 });
 
-  // --- Edge selection (para editar estilos existentes) ---
+  // --- selección de edges — para estilado ---
   const [selectedEdgeIds, setSelectedEdgeIds] = useState<string[]>([]);
   const lastSelectionRef = useRef<string[]>([]);
   const sameIds = (a: string[], b: string[]) =>
@@ -164,12 +160,26 @@ export default function FlowCanvas({
 
   // ---- ADAPTADOR DE COLAB ----
   const isShared = Boolean(mode === "shared" && sharedToken && documentId);
+
+  // Leemos el adapter y, para compatibilidad, sacamos opcionalmente
+  // sendSheetChange / onRemoteSheetChange si existen.
+  const collab = useCollabAdapter(documentId, {
+    mode: isShared ? "shared" : "normal",
+    sharedToken,
+    password: sharedPassword,
+  });
+
   const { snapshot, permission, sendChange, sendPresence, peers, connected } =
-    useCollabAdapter(documentId, {
-      mode: isShared ? "shared" : "normal",
-      sharedToken,
-      password: sharedPassword,
-    });
+    collab;
+
+  // Opcionales (por si tu adapter ya las implementa)
+  type SheetMsg = { sheetId?: string; nodes?: Node[]; edges?: Edge[] };
+  const sendSheetChange:
+    | ((sheetId: string, nodes: Node[], edges: Edge[]) => void)
+    | undefined = (collab as any).sendSheetChange;
+  const onRemoteSheetChange:
+    | ((cb: (msg: SheetMsg) => void) => () => void)
+    | undefined = (collab as any).onRemoteSheetChange;
 
   const effectivePermission = (permission ?? initialPermission) as
     | "read"
@@ -188,14 +198,14 @@ export default function FlowCanvas({
     load(documentId);
   }, [documentId, load, mode]);
 
-  // 👉 sync ref de versión cuando el doc del store cambie
+  // sync ref de versión cuando el doc del store cambie
   useEffect(() => {
     if (doc?.version != null) {
       lastAppliedVersionRef.current = doc.version;
     }
   }, [doc?.version]);
 
-  // 👉 aplicar SIEMPRE el snapshot en vivo si su versión es más nueva
+  // aplicar snapshot de socket si llega con versión > a la aplicada
   useEffect(() => {
     if (!documentId || !snapshot) return;
     const incomingVersion = snapshot.version ?? 0;
@@ -280,6 +290,10 @@ export default function FlowCanvas({
   // Sheets
   const { update, create: createSheet } = useSheets();
   const [activeSheet, setActiveSheet] = useState<any>(null);
+  const activeSheetIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    activeSheetIdRef.current = activeSheet?.id ?? null;
+  }, [activeSheet]);
   const [isChangingSheet, setIsChangingSheet] = useState(false);
   const [hasInteracted, setHasInteracted] = useState(false);
 
@@ -409,21 +423,84 @@ export default function FlowCanvas({
     if (documentId) save();
   }, 1000);
 
+  // === Hoja: persistencia + broadcast ===
   const persistSheet = useDebouncedCallback(
     async (nodes: Node[], edges: Edge[]) => {
       if (!activeSheet?.id) return;
+
+      // cache local
       setSheets((prev) => ({
         ...prev,
         [activeSheet.id]: { nodes, edges },
       }));
+
+      // emite a otros si el adapter lo soporta
+      try {
+        sendSheetChange?.(activeSheet.id, nodes, edges);
+      } catch {}
+
+      // guarda en API
       try {
         await update(activeSheet.id, { data: { nodes, edges } });
       } catch (e) {
         console.error("Error saving sheet:", e);
       }
     },
-    1000
+    800
   );
+
+  // === Hoja: suscripción a cambios remotos (OPCIONAL: si el adapter lo soporta) ===
+  useEffect(() => {
+    if (!onRemoteSheetChange) return;
+
+    type SheetMsg = { sheetId?: string; nodes?: Node[]; edges?: Edge[] };
+
+    const off = onRemoteSheetChange((msg: SheetMsg) => {
+      const { sheetId, nodes, edges } = msg || {};
+      if (!sheetId) return;
+
+      // 1) Actualiza la caché local de la hoja
+      setSheets((prev) => ({
+        ...prev,
+        [sheetId]: {
+          nodes: (nodes as Node[]) ?? [],
+          edges: (edges as Edge[]) ?? [],
+        },
+      }));
+
+      const currentActive = activeSheetIdRef.current;
+
+      // 2) Si NO hay hoja activa aún, adopta la primera que reciba eventos
+      if (!currentActive) {
+        // Fijamos activeSheet con lo mínimo necesario
+        setActiveSheet({
+          id: sheetId,
+          name: "Hoja",
+          data: {
+            nodes: (nodes as Node[]) ?? [],
+            edges: (edges as Edge[]) ?? [],
+          },
+        } as any);
+
+        activeSheetIdRef.current = sheetId; // mantén el ref sincronizado
+        setSheetNodes(((nodes as Node[]) ?? []).slice());
+        setSheetEdges(((edges as Edge[]) ?? []).slice());
+        return;
+      }
+
+      // 3) Si la hoja activa es la del evento, aplica en vivo
+      if (currentActive === sheetId) {
+        setSheetNodes(((nodes as Node[]) ?? []).slice());
+        setSheetEdges(((edges as Edge[]) ?? []).slice());
+      }
+    });
+
+    return () => {
+      try {
+        off?.();
+      } catch {}
+    };
+  }, [onRemoteSheetChange]);
 
   const onNodesChange: OnNodesChange = useCallback(
     (changes) => {
@@ -1466,18 +1543,20 @@ export default function FlowCanvas({
     });
   }, [title]);
 
-  // 👇 Enviar presencia en coords del diagrama (no de pantalla)
+  // Presencia: enviamos coords en sistema de flujo (no de pantalla)
   useEffect(() => {
     if (!documentId || !rf) return;
+
     const onMove = (e: MouseEvent) => {
       const flowPos = rf.screenToFlowPosition({ x: e.clientX, y: e.clientY });
       sendPresence({ cursor: { x: flowPos.x, y: flowPos.y } });
     };
+
     window.addEventListener("mousemove", onMove);
     return () => window.removeEventListener("mousemove", onMove);
   }, [documentId, sendPresence, rf]);
 
-  // Helpers para mostrar presencia: mapeamos peers -> CursorLayer
+  // Helpers para mostrar presencia
   const remoteCursors = useMemo(() => {
     const list: {
       userId: string;
@@ -1690,7 +1769,7 @@ export default function FlowCanvas({
               </ReactFlow>
 
               {/* Presencia visual integrada */}
-              <PresenceChips users={presenceUsers ?? []} status={connStatus} />
+              <PresenceChips users={presenceUsers} status={connStatus} />
               <CursorLayer cursors={remoteCursors} viewport={viewport} />
 
               <TechDetailsPanel

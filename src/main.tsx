@@ -22,7 +22,8 @@ createRoot(document.getElementById("root")!).render(
         redirect_uri: window.location.origin,
         scope: "openid profile email",
       }}
-      cacheLocation="localstorage"
+      cacheLocation="localstorage" // ⬅️ usar localStorage
+      useRefreshTokens={true} // ⬅️ recomendado
     >
       <BrowserRouter>
         <WebSocketProvider>

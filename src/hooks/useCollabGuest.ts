@@ -1,7 +1,6 @@
-// src/hooks/useCollabGuest.ts
 import { useEffect, useRef, useState, useCallback } from "react";
 import { io, Socket } from "socket.io-client";
-import { useDocumentStore } from "./useDocument"; // 👈 importa el store
+import { useDocumentStore } from "./useDocument";
 
 export type Presence = {
   userSub: string;
@@ -11,8 +10,10 @@ export type Presence = {
   id?: string;
 };
 
+type Snapshot = { data: any; version: number };
+
 export interface CollabGuestState {
-  snapshot: { data: any; version: number } | null;
+  snapshot: Snapshot | null;
   permission: "read" | "edit";
   peers: Record<string, Presence>;
   connected: boolean;
@@ -22,6 +23,18 @@ export interface CollabGuestState {
     cursor?: { x: number; y: number };
     selection?: any;
   }) => void;
+
+  // 👇 NUEVO
+  sendSheetChange?: (sheetId: string, nodes: any[], edges: any[]) => void;
+  onRemoteSheetChange?: (
+    cb: (msg: {
+      sheetId: string;
+      nodes: any[];
+      edges: any[];
+      actor?: string;
+      timestamp?: number;
+    }) => void
+  ) => () => void;
 }
 
 const API_BASE =
@@ -33,10 +46,7 @@ export function useCollabGuest(
   password?: string
 ): CollabGuestState {
   const sref = useRef<Socket | null>(null);
-  const [snapshot, setSnapshot] = useState<{
-    data: any;
-    version: number;
-  } | null>(null);
+  const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [permission, setPermission] = useState<"read" | "edit">("read");
   const [peers, setPeers] = useState<Record<string, Presence>>({});
   const [connected, setConnected] = useState(false);
@@ -46,9 +56,21 @@ export function useCollabGuest(
     selection?: any;
   }>({});
 
-  // 👇 acceso directo al store (sin hook dentro de efectos)
+  // acceso directo al store
   const setDoc = useDocumentStore.getState().setDoc;
   const getDoc = useDocumentStore.getState;
+
+  // callback para sheet:change
+  const sheetChangeCb = useRef<
+    | ((msg: {
+        sheetId: string;
+        nodes: any[];
+        edges: any[];
+        actor?: string;
+        timestamp?: number;
+      }) => void)
+    | null
+  >(null);
 
   const sendPresence = useCallback(
     (p: { cursor?: { x: number; y: number }; selection?: any }) => {
@@ -64,15 +86,48 @@ export function useCollabGuest(
     (ops: any) => {
       const socket = sref.current;
       if (!socket || !socket.connected || permission !== "edit") return;
+
       const version = getDoc().doc?.version ?? snapshot?.version ?? 0;
-      socket.emit("change", {
-        documentId,
-        version,
-        ops,
-        timestamp: Date.now(),
-      });
+
+      socket.emit(
+        "change",
+        { documentId, version, ops, timestamp: Date.now() },
+        (ack?: { ok?: boolean; version?: number }) => {
+          if (!ack?.ok || typeof ack.version !== "number") return;
+
+          // Avanza localmente (el servidor no rebota al emisor)
+          const current = getDoc().doc;
+          if (current) {
+            const next = { ...current, version: ack.version };
+            if (ops?.nodes)
+              next.data = { ...(next.data ?? {}), nodes: ops.nodes };
+            if (ops?.edges)
+              next.data = { ...(next.data ?? {}), edges: ops.edges };
+            if (typeof ops?.title === "string") (next as any).title = ops.title;
+            setDoc(next);
+          }
+
+          setSnapshot((prev): Snapshot => {
+            const base: Snapshot = prev ?? {
+              data: { nodes: [], edges: [] },
+              version: 0,
+            };
+            const snext: Snapshot = {
+              version: ack.version!,
+              data: { ...(base.data ?? {}) },
+            };
+            if (ops?.nodes) snext.data.nodes = ops.nodes;
+            else snext.data.nodes = base.data?.nodes ?? [];
+            if (ops?.edges) snext.data.edges = ops.edges;
+            else snext.data.edges = base.data?.edges ?? [];
+            if (typeof ops?.title === "string")
+              (snext as any).title = ops.title;
+            return snext;
+          });
+        }
+      );
     },
-    [documentId, permission, snapshot]
+    [documentId, permission, snapshot, getDoc, setDoc]
   );
 
   useEffect(() => {
@@ -103,17 +158,20 @@ export function useCollabGuest(
         if (closed) return;
 
         if (res?.ok) {
-          const snap = res.snapshot ?? null;
+          const snap: Snapshot | null = res.snapshot ?? null;
           setSnapshot(snap);
           if (res.permission) setPermission(res.permission);
 
-          // ✅ hidrata el store para que ReactFlow pinte YA
+          // hidrata store ya
           const current = getDoc().doc;
           if (current) {
             setDoc({
               ...current,
               data: snap?.data ?? current.data,
-              version: snap?.version ?? current.version,
+              version:
+                typeof snap?.version === "number"
+                  ? snap.version
+                  : current.version,
             });
           } else {
             setDoc({
@@ -121,7 +179,7 @@ export function useCollabGuest(
               title: "",
               kind: "diagram",
               data: snap?.data ?? { nodes: [], edges: [] },
-              version: snap?.version ?? 0,
+              version: typeof snap?.version === "number" ? snap.version : 0,
               templateId: null,
               isArchived: false,
               createdBy: "",
@@ -160,22 +218,23 @@ export function useCollabGuest(
       s.emit("presence", { documentId, ...p, timestamp: Date.now() });
     });
 
-    // ✅ CAMBIOS REMOTOS → actualizar snapshot y store
+    // CAMBIOS REMOTOS (otros clientes)
     s.on("change", (msg: { version: number; ops: any; actor: string }) => {
-      setSnapshot((prev) => {
-        const base = prev ?? { data: { nodes: [], edges: [] }, version: 0 };
-        const next = {
-          ...base,
+      setSnapshot((prev): Snapshot => {
+        const base: Snapshot = prev ?? {
+          data: { nodes: [], edges: [] },
+          version: 0,
+        };
+        const next: Snapshot = {
           version: msg.version,
           data: { ...(base.data ?? {}) },
         };
-
         if (msg.ops?.nodes) next.data.nodes = msg.ops.nodes;
+        else next.data.nodes = base.data?.nodes ?? [];
         if (msg.ops?.edges) next.data.edges = msg.ops.edges;
-        if (typeof msg.ops?.title === "string")
-          (next as any).title = msg.ops.title;
+        else next.data.edges = base.data?.edges ?? [];
 
-        // hidratar store inmediatamente (sin depender de FlowCanvas useEffect)
+        // hidratar store inmediatamente
         const current = getDoc().doc;
         if (current) {
           setDoc({
@@ -188,33 +247,9 @@ export function useCollabGuest(
       });
     });
 
-    // PRESENCIA
-    s.on("presence:joined", (p: Presence) => {
-      if (closed) return;
-      const userSub = p.userSub || `guest:${sharedToken}:${p["id"] ?? ""}`;
-      setPeers((prev) => ({
-        ...prev,
-        [userSub]: { ...p, userSub, kind: "guest" },
-      }));
-    });
-
-    s.on("presence:left", (p: Presence) => {
-      if (closed) return;
-      const userSub = p.userSub || `guest:${sharedToken}:${p["id"] ?? ""}`;
-      setPeers((prev) => {
-        const next = { ...prev };
-        delete next[userSub];
-        return next;
-      });
-    });
-
-    s.on("presence", (p: Presence) => {
-      if (closed) return;
-      const userSub = p.userSub || `guest:${sharedToken}:${p["id"] ?? ""}`;
-      setPeers((prev) => ({
-        ...prev,
-        [userSub]: { ...(prev[userSub] || {}), ...p, userSub, kind: "guest" },
-      }));
+    // HOJAS: cambios remotos
+    s.on("sheet:change", (msg: any) => {
+      sheetChangeCb.current?.(msg);
     });
 
     s.on("document:error", (err: any) => {
@@ -228,6 +263,33 @@ export function useCollabGuest(
       setPermission(newPermission);
     });
 
+    // presencia
+    s.on("presence:joined", (p: Presence) => {
+      if (closed) return;
+      const userSub = p.userSub || `guest:${sharedToken}:${p["id"] ?? ""}`;
+      setPeers((prev) => ({
+        ...prev,
+        [userSub]: { ...p, userSub, kind: "guest" },
+      }));
+    });
+    s.on("presence:left", (p: Presence) => {
+      if (closed) return;
+      const userSub = p.userSub || `guest:${sharedToken}:${p["id"] ?? ""}`;
+      setPeers((prev) => {
+        const next = { ...prev };
+        delete next[userSub];
+        return next;
+      });
+    });
+    s.on("presence", (p: Presence) => {
+      if (closed) return;
+      const userSub = p.userSub || `guest:${sharedToken}:${p["id"] ?? ""}`;
+      setPeers((prev) => ({
+        ...prev,
+        [userSub]: { ...(prev[userSub] || {}), ...p, userSub, kind: "guest" },
+      }));
+    });
+
     return () => {
       closed = true;
       try {
@@ -236,8 +298,38 @@ export function useCollabGuest(
       } catch (err) {
         console.error("Error disconnecting socket:", err);
       }
+      sheetChangeCb.current = null;
     };
   }, [documentId, sharedToken, password, setDoc]);
+
+  // Hoja: emisor
+  const sendSheetChange = useCallback(
+    (sheetId: string, nodes: any[], edges: any[]) => {
+      const socket = sref.current;
+      if (!socket || !socket.connected) return;
+      socket.emit("sheet:change", { documentId, sheetId, nodes, edges });
+    },
+    [documentId]
+  );
+
+  // Hoja: suscriptor
+  const onRemoteSheetChange = useCallback(
+    (
+      cb: (msg: {
+        sheetId: string;
+        nodes: any[];
+        edges: any[];
+        actor?: string;
+        timestamp?: number;
+      }) => void
+    ) => {
+      sheetChangeCb.current = cb;
+      return () => {
+        if (sheetChangeCb.current === cb) sheetChangeCb.current = null;
+      };
+    },
+    []
+  );
 
   return {
     snapshot,
@@ -247,5 +339,7 @@ export function useCollabGuest(
     peers,
     connected,
     error,
+    sendSheetChange,
+    onRemoteSheetChange,
   };
 }

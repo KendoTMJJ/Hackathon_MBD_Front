@@ -13,8 +13,7 @@ export interface CollabAdapter {
 }
 
 /**
- * Adaptador unificado para colaboración que funciona tanto para usuarios
- * autenticados como para invitados con links compartidos
+ * Adaptador unificado para colaboración (usuarios autenticados o invitados).
  */
 export function useCollabAdapter(
   documentId: string | undefined,
@@ -28,44 +27,45 @@ export function useCollabAdapter(
     opts?.mode === "shared" && opts?.sharedToken && documentId
   );
 
-  // Hook de colaboración para invitados
-  const guestResult = useCollabGuest(
-    documentId || "",
-    opts?.sharedToken || "",
-    opts?.password
-  );
+  // Invitados (link compartido)
+  const guest = isShared
+    ? useCollabGuest(documentId || "", opts?.sharedToken || "", opts?.password)
+    : null;
 
-  // Hook de colaboración normal
-  const normalResult = useCollab(documentId);
+  // Usuarios autenticados
+  const normal = !isShared ? useCollab(documentId) : null;
 
-  if (isShared && documentId && opts?.sharedToken) {
+  if (isShared && guest) {
     return {
-      snapshot: guestResult.snapshot,
-      permission: guestResult.permission,
-      sendChange: guestResult.sendChange,
-      sendPresence: guestResult.sendPresence,
-      peers: guestResult.peers || {},
-      connected: Boolean(guestResult.snapshot),
-      error: undefined, // Podrías añadir manejo de errores aquí
+      snapshot: guest.snapshot,
+      permission: guest.permission,
+      sendChange: guest.sendChange,
+      sendPresence: guest.sendPresence,
+      peers: guest.peers || {},
+      connected: !!guest.connected || !!guest.snapshot,
+      error: guest.error || undefined,
     };
   }
 
-  if (documentId) {
+  if (documentId && normal) {
     return {
-      snapshot: null, // Los documentos normales no usan snapshot colaborativo
-      permission: "edit" as const,
-      sendChange: normalResult?.sendChange || (() => {}),
-      sendPresence: normalResult?.sendPresence || (() => {}),
-      peers: normalResult?.peers || {},
-      connected: Boolean(normalResult?.sendChange),
+      snapshot: normal.snapshot,
+      permission: (normal.permission ?? undefined) as
+        | "read"
+        | "edit"
+        | undefined,
+      sendChange: normal.sendChange,
+      sendPresence: normal.sendPresence,
+      peers: normal.peers || {},
+      connected: normal.permission != null,
       error: undefined,
     };
   }
 
-  // Modo borrador o sin documento
+  // Sin documento
   return {
     snapshot: null,
-    permission: "edit" as const,
+    permission: "edit",
     sendChange: () => {},
     sendPresence: () => {},
     peers: {},
