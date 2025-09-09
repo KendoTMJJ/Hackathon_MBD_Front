@@ -1,3 +1,4 @@
+// src/components/flow/FlowCanvas.tsx
 import type React from "react";
 
 import {
@@ -30,7 +31,6 @@ import { nodeTypes } from "./nodes";
 import { edgeTypes } from "./edges";
 import { TechnologyPanel } from "./TechnologyPanel";
 
-import { useCollab } from "../../hooks/useCollab";
 import { useApi } from "../../hooks/useApi";
 import { useDocumentStore, useDocumentsApi } from "../../hooks/useDocument";
 
@@ -67,6 +67,11 @@ import { SWITCH_TECH, type SwitchPayload } from "./nodes/SwitchNode";
 import CanvasHelpButtons from "./CanvasHelpButtons";
 import { captureFlowAsPng } from "../gap/captureCanvas";
 
+// Colab + Presencia
+import { useCollabAdapter } from "../../hooks/useCollabAdapter";
+import PresenceChips from "../collab/PresenceChips";
+import CursorLayer from "../collab/CursorLayer";
+
 const initialNodes: Node[] = [];
 const initialEdges: Edge[] = [];
 
@@ -79,7 +84,21 @@ const onNodeDrag: OnNodeDrag = () => {};
 const TOOLBAR_H = 60;
 const allNodeTypes = { ...nodeTypes, ...zoneTypes };
 
-export default function FlowCanvas() {
+type FlowCanvasProps = {
+  mode?: "full" | "shared";
+  initialPermission?: "read" | "edit";
+  sharedToken?: string;
+  sharedPassword?: string;
+  documentIdOverride?: string;
+};
+
+export default function FlowCanvas({
+  mode = "full",
+  initialPermission = "edit",
+  sharedToken,
+  sharedPassword,
+  documentIdOverride,
+}: FlowCanvasProps) {
   const nav = useNavigate();
   const [selectedTech, setSelectedTech] = useState<TechLike | null>(null);
   const [hasPendingChanges, setHasPendingChanges] = useState(false);
@@ -90,7 +109,21 @@ export default function FlowCanvas() {
   const [past, setPast] = useState<Snapshot[]>([]);
   const [future, setFuture] = useState<Snapshot[]>([]);
   const lastSnapRef = useRef<string>("");
-  const canvasRef = useRef<HTMLDivElement>(null); // 👈 NUEVO
+  const canvasRef = useRef<HTMLDivElement>(null);
+
+  // 👇 track versión última aplicada desde snapshot para evitar re-aplicar
+  const lastAppliedVersionRef = useRef<number>(-1);
+
+  // Estado del viewport para CursorLayer
+  const [viewport, setViewport] = useState<{
+    x: number;
+    y: number;
+    zoom: number;
+  }>({
+    x: 0,
+    y: 0,
+    zoom: 1,
+  });
 
   // --- Edge selection (para editar estilos existentes) ---
   const [selectedEdgeIds, setSelectedEdgeIds] = useState<string[]>([]);
@@ -109,7 +142,8 @@ export default function FlowCanvas() {
   // 1) documentId o modo borrador (query)
   const { documentId: paramId } = useParams<{ documentId?: string }>();
   const q = new URLSearchParams(useLocation().search);
-  const documentId = paramId || q.get("doc") || q.get("id") || undefined;
+  const documentId =
+    documentIdOverride || paramId || q.get("doc") || q.get("id") || undefined;
 
   // En borrador vienen:
   const draftProjectId = q.get("projectId") || undefined;
@@ -124,20 +158,77 @@ export default function FlowCanvas() {
   const templatesApi = useTemplates();
   const projectsApi = useProject();
 
-  // Store + colab (solo cuando hay documentId)
+  // Store
   const { doc, load, save, applyLocalPatch, setApiReady, setDoc } =
     useDocumentStore();
-  const { sendChange: collabSendChange } = useCollab(documentId);
-  const sendChange = documentId ? collabSendChange : (_p: any) => {};
+
+  // ---- ADAPTADOR DE COLAB ----
+  const isShared = Boolean(mode === "shared" && sharedToken && documentId);
+  const { snapshot, permission, sendChange, sendPresence, peers, connected } =
+    useCollabAdapter(documentId, {
+      mode: isShared ? "shared" : "normal",
+      sharedToken,
+      password: sharedPassword,
+    });
+
+  const effectivePermission = (permission ?? initialPermission) as
+    | "read"
+    | "edit";
+  const readOnly = Boolean(isShared && effectivePermission === "read");
 
   // Inyecta axios real al store
   useEffect(() => {
     setApiReady(() => api);
   }, [api, setApiReady]);
 
+  // Carga por API sólo en modo editor normal
   useEffect(() => {
-    if (documentId) load(documentId);
-  }, [documentId, load]);
+    if (!documentId) return;
+    if (mode === "shared") return;
+    load(documentId);
+  }, [documentId, load, mode]);
+
+  // 👉 sync ref de versión cuando el doc del store cambie
+  useEffect(() => {
+    if (doc?.version != null) {
+      lastAppliedVersionRef.current = doc.version;
+    }
+  }, [doc?.version]);
+
+  // 👉 aplicar SIEMPRE el snapshot en vivo si su versión es más nueva
+  useEffect(() => {
+    if (!documentId || !snapshot) return;
+    const incomingVersion = snapshot.version ?? 0;
+    if (incomingVersion <= lastAppliedVersionRef.current) return;
+
+    const current = useDocumentStore.getState().doc;
+    const nextData = snapshot.data ?? { nodes: [], edges: [] };
+
+    if (current) {
+      setDoc({
+        ...current,
+        data: nextData,
+        version: incomingVersion,
+      });
+    } else {
+      setDoc({
+        id: documentId,
+        title: "",
+        kind: "diagram",
+        data: nextData,
+        version: incomingVersion,
+        templateId: null,
+        isArchived: false,
+        createdBy: "",
+        projectId: "",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        sheets: [],
+      } as any);
+    }
+
+    lastAppliedVersionRef.current = incomingVersion;
+  }, [documentId, snapshot?.version, snapshot?.data, setDoc]);
 
   useEffect(() => {
     if (!documentId) return;
@@ -201,7 +292,20 @@ export default function FlowCanvas() {
     hasUserInteracted.current = true;
     lastInteractionTime.current = Date.now();
     setHasInteracted(true);
-  }, []);
+    if (rf) {
+      // @ts-ignore
+      const t =
+        (rf as any)?.getViewport?.() || (rf as any)?.toObject?.()?.viewport;
+      if (
+        t &&
+        typeof t.x === "number" &&
+        typeof t.y === "number" &&
+        typeof t.zoom === "number"
+      ) {
+        setViewport({ x: t.x, y: t.y, zoom: t.zoom });
+      }
+    }
+  }, [rf]);
 
   // cargar plantilla (borrador)
   useEffect(() => {
@@ -324,6 +428,8 @@ export default function FlowCanvas() {
   const onNodesChange: OnNodesChange = useCallback(
     (changes) => {
       if (isChangingSheet) return;
+      if (documentId && readOnly) return;
+
       pushHistory();
       if (activeSheet) {
         setSheetNodes((nds) => {
@@ -345,6 +451,7 @@ export default function FlowCanvas() {
     },
     [
       documentId,
+      readOnly,
       applyLocalPatch,
       sendChange,
       activeSheet,
@@ -358,6 +465,8 @@ export default function FlowCanvas() {
   const onEdgesChange: OnEdgesChange = useCallback(
     (changes) => {
       if (isChangingSheet) return;
+      if (documentId && readOnly) return;
+
       pushHistory();
       if (activeSheet) {
         setSheetEdges((eds) => {
@@ -379,6 +488,7 @@ export default function FlowCanvas() {
     },
     [
       documentId,
+      readOnly,
       applyLocalPatch,
       sendChange,
       activeSheet,
@@ -419,6 +529,7 @@ export default function FlowCanvas() {
         setSheetEdges(s.edges);
         persistSheet(s.nodes, s.edges);
       } else if (documentId) {
+        if (readOnly) return;
         const patch = { nodes: s.nodes, edges: s.edges };
         applyLocalPatch(patch);
         sendChange(patch);
@@ -431,6 +542,7 @@ export default function FlowCanvas() {
     [
       activeSheet,
       documentId,
+      readOnly,
       applyLocalPatch,
       sendChange,
       debouncedSave,
@@ -441,10 +553,10 @@ export default function FlowCanvas() {
   const pushHistory = useCallback(() => {
     const snap = makeSnapshot();
     const key = JSON.stringify({ n: snap.nodes, e: snap.edges });
-    if (key === lastSnapRef.current) return; // evita duplicados
+    if (key === lastSnapRef.current) return;
     lastSnapRef.current = key;
     setPast((p) => [...p, snap]);
-    setFuture([]); // limpiar futuro en cambios nuevos
+    setFuture([]);
   }, [makeSnapshot]);
 
   const undo = useCallback(() => {
@@ -452,7 +564,6 @@ export default function FlowCanvas() {
       if (p.length === 0) return p;
       const prev = p[p.length - 1];
       const newPast = p.slice(0, -1);
-      // el actual pasa a future
       setFuture((f) => [makeSnapshot(), ...f]);
       applySnapshot(prev);
       lastSnapRef.current = JSON.stringify({ n: prev.nodes, e: prev.edges });
@@ -480,11 +591,9 @@ export default function FlowCanvas() {
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      // ESC sale del modo borrar
       if (e.key === "Escape" && isDeleteMode) {
         setIsDeleteMode(false);
       }
-      // Undo / Redo
       const isMac = navigator.platform.toLowerCase().includes("mac");
       const ctrlOrCmd = isMac ? e.metaKey : e.ctrlKey;
 
@@ -507,6 +616,8 @@ export default function FlowCanvas() {
   const applyPresetToSelectedEdges = useCallback(
     (preset: EdgePreset) => {
       if (!selectedEdgeIds.length) return;
+      if (documentId && readOnly) return;
+
       pushHistory();
 
       const mapEdge = (e: Edge): Edge =>
@@ -539,10 +650,11 @@ export default function FlowCanvas() {
     },
     [
       selectedEdgeIds,
+      documentId,
+      readOnly,
       activeSheet,
       sheetNodes,
       persistSheet,
-      documentId,
       applyLocalPatch,
       sendChange,
       debouncedSave,
@@ -552,6 +664,8 @@ export default function FlowCanvas() {
 
   const onConnect: OnConnect = useCallback(
     (connection) => {
+      if (documentId && readOnly) return;
+
       const payload = {
         ...connection,
         type: "colorEdge",
@@ -580,8 +694,9 @@ export default function FlowCanvas() {
       }
     },
     [
-      activeSheet,
       documentId,
+      readOnly,
+      activeSheet,
       sheetNodes,
       persistSheet,
       applyLocalPatch,
@@ -596,12 +711,13 @@ export default function FlowCanvas() {
     (v: string) => {
       setTitle(v);
       if (documentId) {
+        if (readOnly) return;
         const current = useDocumentStore.getState().doc;
         if (current) setDoc({ ...current, title: v });
         debouncedSave();
       }
     },
-    [documentId, setDoc, debouncedSave]
+    [documentId, readOnly, setDoc, debouncedSave]
   );
 
   useEffect(() => {
@@ -640,6 +756,9 @@ export default function FlowCanvas() {
   );
 
   const handleSave = useCallback(async () => {
+    // En modo compartido no hay guardado manual; los cambios persisten vía socket/back
+    if (mode === "shared") return;
+
     if (!isAuthenticated) {
       await loginWithRedirect({
         appState: {
@@ -650,14 +769,15 @@ export default function FlowCanvas() {
     }
 
     if (documentId) {
+      if (readOnly) return;
       setIsSaving(true);
       try {
         await save();
-        const currentDoc = useDocumentStore.getState().doc;
+        const current = useDocumentStore.getState().doc;
         const cleanSnapshot = JSON.stringify({
-          title: currentDoc?.title ?? title,
-          nodes: (currentDoc?.data?.nodes as Node[]) ?? [],
-          edges: (currentDoc?.data?.edges as Edge[]) ?? [],
+          title: current?.title ?? title,
+          nodes: (current?.data?.nodes as Node[]) ?? [],
+          edges: (current?.data?.edges as Edge[]) ?? [],
         });
         lastSavedRef.current = cleanSnapshot;
         setHasPendingChanges(false);
@@ -702,9 +822,11 @@ export default function FlowCanvas() {
       setIsSaving(false);
     }
   }, [
+    mode,
     isAuthenticated,
     loginWithRedirect,
     documentId,
+    readOnly,
     save,
     draftProjectId,
     title,
@@ -848,6 +970,7 @@ export default function FlowCanvas() {
                 return next;
               });
             } else if (documentId) {
+              if (readOnly) return;
               const current = useDocumentStore.getState().doc;
               const currentNodes = (current?.data?.nodes as Node[]) ?? [];
               const nextNodes = currentNodes.map((n) =>
@@ -878,6 +1001,7 @@ export default function FlowCanvas() {
       activeSheet,
       sheetEdges,
       documentId,
+      readOnly,
       applyLocalPatch,
       sendChange,
       persistSheet,
@@ -903,6 +1027,8 @@ export default function FlowCanvas() {
 
       const newNode = createZoneNodeFromTemplate(tpl, position);
       if (!newNode) return;
+
+      if (documentId && readOnly) return;
 
       pushHistory();
 
@@ -930,6 +1056,7 @@ export default function FlowCanvas() {
       activeSheet,
       sheetEdges,
       documentId,
+      readOnly,
       applyLocalPatch,
       sendChange,
       persistSheet,
@@ -961,7 +1088,7 @@ export default function FlowCanvas() {
             newNode = createZoneNodeFromTemplate(tpl, position);
           }
         } catch {
-          /* not json -> fall through */
+          /* not json */
         }
       }
       if (!newNode) {
@@ -1000,6 +1127,7 @@ export default function FlowCanvas() {
       }
 
       if (!newNode) return;
+      if (documentId && readOnly) return;
 
       pushHistory();
 
@@ -1027,6 +1155,7 @@ export default function FlowCanvas() {
       sheetNodes,
       sheetEdges,
       documentId,
+      readOnly,
       draftNodes,
       applyLocalPatch,
       sendChange,
@@ -1083,6 +1212,8 @@ export default function FlowCanvas() {
         zIndex: 1,
       };
 
+      if (documentId && readOnly) return;
+
       pushHistory();
 
       if (activeSheet) {
@@ -1104,10 +1235,11 @@ export default function FlowCanvas() {
     },
     [
       selectedZone,
+      documentId,
+      readOnly,
       activeSheet,
       sheetNodes,
       sheetEdges,
-      documentId,
       storeNodes,
       draftNodes,
       persistSheet,
@@ -1120,6 +1252,8 @@ export default function FlowCanvas() {
 
   const handleAddSwitch = useCallback(() => {
     if (!rf) return;
+    if (documentId && readOnly) return;
+
     const pt = rf.screenToFlowPosition({
       x: window.innerWidth / 2,
       y: window.innerHeight / 2,
@@ -1153,10 +1287,11 @@ export default function FlowCanvas() {
     }
   }, [
     rf,
+    documentId,
+    readOnly,
     activeSheet,
     sheetEdges,
     persistSheet,
-    documentId,
     applyLocalPatch,
     sendChange,
     debouncedSave,
@@ -1197,7 +1332,6 @@ export default function FlowCanvas() {
   }, [displayNodes]);
 
   const handleExportPdf = useCallback(async () => {
-    // asegúrate de tener reqs; si no, recalcúlalo rápido
     let map = reqs;
     if (!map) {
       const zoneIds = Array.from(
@@ -1233,6 +1367,8 @@ export default function FlowCanvas() {
 
   const deleteEdgesById = useCallback(
     (ids: string[]) => {
+      if (documentId && readOnly) return;
+
       pushHistory();
       const apply = (edges: Edge[]) => edges.filter((e) => !ids.includes(e.id));
 
@@ -1255,10 +1391,11 @@ export default function FlowCanvas() {
       }
     },
     [
+      documentId,
+      readOnly,
       activeSheet,
       sheetNodes,
       persistSheet,
-      documentId,
       applyLocalPatch,
       sendChange,
       debouncedSave,
@@ -1268,10 +1405,11 @@ export default function FlowCanvas() {
 
   const deleteNodesById = useCallback(
     (ids: string[]) => {
+      if (documentId && readOnly) return;
+
       pushHistory();
 
       const apply = (nodes: Node[], edges: Edge[]) => {
-        // quitar edges conectadas a esos nodos
         const nodeIdSet = new Set(ids);
         const nextNodes = nodes.filter((n) => !nodeIdSet.has(n.id));
         const nextEdges = edges.filter(
@@ -1305,10 +1443,11 @@ export default function FlowCanvas() {
       }
     },
     [
+      documentId,
+      readOnly,
       activeSheet,
       sheetEdges,
       persistSheet,
-      documentId,
       applyLocalPatch,
       sendChange,
       debouncedSave,
@@ -1326,6 +1465,53 @@ export default function FlowCanvas() {
       downloadFileName: `${(title || "diagrama").trim() || "diagrama"}.png`,
     });
   }, [title]);
+
+  // 👇 Enviar presencia en coords del diagrama (no de pantalla)
+  useEffect(() => {
+    if (!documentId || !rf) return;
+    const onMove = (e: MouseEvent) => {
+      const flowPos = rf.screenToFlowPosition({ x: e.clientX, y: e.clientY });
+      sendPresence({ cursor: { x: flowPos.x, y: flowPos.y } });
+    };
+    window.addEventListener("mousemove", onMove);
+    return () => window.removeEventListener("mousemove", onMove);
+  }, [documentId, sendPresence, rf]);
+
+  // Helpers para mostrar presencia: mapeamos peers -> CursorLayer
+  const remoteCursors = useMemo(() => {
+    const list: {
+      userId: string;
+      x: number;
+      y: number;
+      name: string;
+      color: string;
+    }[] = [];
+    const entries = Object.values(peers || {});
+    for (const p of entries as any[]) {
+      if (!p?.cursor) continue;
+      const userId = p.userSub || "guest";
+      const name =
+        (p.profileName as string) ||
+        (userId.startsWith("guest:") ? "Invitado" : userId.slice(0, 6));
+      const color = colorFromId(userId);
+      list.push({ userId, x: p.cursor.x, y: p.cursor.y, name, color });
+    }
+    return list;
+  }, [peers]);
+
+  const presenceUsers = useMemo(() => {
+    const entries = Object.values(peers || {});
+    return (entries as any[]).map((p) => ({
+      id: p.userSub || "guest",
+      name:
+        (p.profileName as string) ||
+        ((p.userSub as string) ? (p.userSub as string).slice(0, 6) : "guest"),
+      color: colorFromId(p.userSub || "guest"),
+    }));
+  }, [peers]);
+
+  const connStatus: "connected" | "connecting" | "disconnected" | "error" =
+    connected ? "connected" : "connecting";
 
   return (
     <div className="w-screen h-[100dvh] overflow-hidden bg-slate-50">
@@ -1361,7 +1547,7 @@ export default function FlowCanvas() {
                 setIsCanvasActionsPanelVisible((v) => !v)
               }
               onExportPdf={handleExportPdf}
-              onExportImg={handleExportImage} // 👈 cambia aquí el nombre
+              onExportImg={handleExportImage}
               onOpenShare={() => setShareModalOpen(true)}
               onOpenInfo={() => setInfoModalOpen(true)}
             />
@@ -1386,7 +1572,7 @@ export default function FlowCanvas() {
             </div>
           </aside>
 
-          <div className="relative min-h-0 flex-1">
+          <div className="relative min-h-0 flex-1" ref={flowContainerRef}>
             <div ref={canvasRef} className="absolute inset-0 pb-10">
               <ReactFlow
                 key={
@@ -1407,13 +1593,28 @@ export default function FlowCanvas() {
                 fitView
                 fitViewOptions={fitViewOptions}
                 defaultEdgeOptions={defaultEdgeOptions}
-                onInit={setRf}
+                onInit={(inst) => {
+                  setRf(inst);
+                  try {
+                    // @ts-ignore
+                    const t =
+                      (inst as any)?.getViewport?.() ||
+                      (inst as any)?.toObject?.()?.viewport;
+                    if (t) setViewport({ x: t.x, y: t.y, zoom: t.zoom });
+
+                    // presencia inicial en el centro
+                    const mid = inst.screenToFlowPosition({
+                      x: window.innerWidth / 2,
+                      y: window.innerHeight / 2,
+                    });
+                    sendPresence({ cursor: { x: mid.x, y: mid.y } });
+                  } catch {}
+                }}
                 onDrop={onDrop}
                 onDragOver={onDragOver}
                 onViewportChange={handleViewportChange}
                 onNodeClick={(_, node) => {
                   if (isDeleteMode) {
-                    // evitar que también setee selección / panels
                     deleteNodesById([node.id]);
                     return;
                   }
@@ -1488,6 +1689,10 @@ export default function FlowCanvas() {
                 />
               </ReactFlow>
 
+              {/* Presencia visual integrada */}
+              <PresenceChips users={presenceUsers} status={connStatus} />
+              <CursorLayer cursors={remoteCursors} viewport={viewport} />
+
               <TechDetailsPanel
                 tech={selectedTech}
                 onClose={() => setSelectedTech(null)}
@@ -1534,4 +1739,12 @@ export default function FlowCanvas() {
       </div>
     </div>
   );
+}
+
+/** Color determinista por usuario (para chips/cursor) */
+function colorFromId(id: string): string {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  const hue = h % 360;
+  return `hsl(${hue}, 70%, 45%)`;
 }

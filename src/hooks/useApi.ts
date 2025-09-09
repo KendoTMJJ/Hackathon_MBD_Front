@@ -15,6 +15,9 @@ export function useApi(): AxiosInstance {
       const token = await getAccessTokenSilently({
         authorizationParams: { audience: AUDIENCE },
       });
+
+      console.log("ACCESS TOKEN:", token);
+      console.log("DECODED:", JSON.parse(atob(token.split(".")[1])));
       config.headers = config.headers ?? {};
       (config.headers as any).Authorization = `Bearer ${token}`;
       return config;

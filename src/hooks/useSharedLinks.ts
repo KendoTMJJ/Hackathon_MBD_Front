@@ -1,108 +1,102 @@
-import { useState, useCallback } from "react";
+// src/hooks/useSharedLinksApi.ts
 import { useApi } from "./useApi";
-import type {
-  SharedLinkEntity,
-  CreateShareLinkRequest,
-  ShareLinkResponse,
-  SharedDocumentAccess,
-} from "../models";
 
-export function useSharedLinks() {
+export type CreateSharedLinkDto = {
+  documentId: string;
+  permission: "read" | "edit"; // front
+  expiresAt?: string | null;
+  password?: string | null;
+  maxUses?: number | null;
+  // opcional: scope si tu back lo necesita explícito
+  // scope?: "document" | "project";
+};
+
+type ShareLink = {
+  id: string;
+  slug?: string;
+  token?: string;
+  permission?: "read" | "edit";
+  minRole?: "reader" | "editor";
+  expiresAt?: string | null;
+  isActive?: boolean;
+  createdAt?: string;
+  uses?: number;
+  maxUses?: number | null;
+  documentId?: string;
+};
+
+type CreateShareResponse =
+  | { shareUrl: string; link?: ShareLink }
+  | { token?: string; slug?: string; link?: ShareLink };
+
+export function useSharedLinksApi() {
   const api = useApi();
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const base = (import.meta.env.VITE_API_BASE_URL as string).replace(/\/$/, "");
 
-  const create = useCallback(
-    async (
-      documentId: string,
-      dto: CreateShareLinkRequest
-    ): Promise<ShareLinkResponse> => {
-      setLoading(true);
-      setError(null);
-      try {
-        const { data } = await api.post<ShareLinkResponse>(
-          `/documents/${documentId}/share`,
-          dto
-        );
-        return data;
-      } catch (err: any) {
-        const message =
-          err?.response?.data?.message || "Error creating share link";
-        setError(message);
-        throw new Error(message);
-      } finally {
-        setLoading(false);
-      }
-    },
-    [api]
-  );
-
-  const listByDocument = useCallback(
-    async (documentId: string): Promise<SharedLinkEntity[]> => {
-      setLoading(true);
-      setError(null);
-      try {
-        const { data } = await api.get<SharedLinkEntity[]>(
-          `/documents/${documentId}/shares`
-        );
-        return data;
-      } catch (err: any) {
-        const message = err?.response?.data?.message || "Error loading shares";
-        setError(message);
-        throw new Error(message);
-      } finally {
-        setLoading(false);
-      }
-    },
-    [api]
-  );
-
-  const revoke = useCallback(
-    async (linkId: string): Promise<void> => {
-      setLoading(true);
-      setError(null);
-      try {
-        await api.delete(`/documents/shares/${linkId}`);
-      } catch (err: any) {
-        const message =
-          err?.response?.data?.message || "Error revoking share link";
-        setError(message);
-        throw new Error(message);
-      } finally {
-        setLoading(false);
-      }
-    },
-    [api]
-  );
-
-  const getByToken = useCallback(
-    async (token: string, password?: string): Promise<SharedDocumentAccess> => {
-      setLoading(true);
-      setError(null);
-      try {
-        const { data } = await api.get<SharedDocumentAccess>(
-          `/shared/${token}`,
-          { params: password ? { password } : undefined }
-        );
-        return data;
-      } catch (err: any) {
-        const message =
-          err?.response?.data?.message || "Error accessing shared document";
-        setError(message);
-        throw new Error(message);
-      } finally {
-        setLoading(false);
-      }
-    },
-    [api]
-  );
+  const mapPermissionToMinRole = (p: "read" | "edit"): "reader" | "editor" =>
+    p === "edit" ? "editor" : "reader";
 
   return {
-    loading,
-    error,
-    create,
-    listByDocument,
-    revoke,
-    getByToken,
+    /** Crea link (JWT) */
+    async create(dto: CreateSharedLinkDto) {
+      // Si tu back espera minRole/scope, mapea aquí:
+      const payload = {
+        documentId: dto.documentId,
+        // scope: dto.scope ?? "document",
+        minRole: mapPermissionToMinRole(dto.permission),
+        expiresAt: dto.expiresAt ?? null,
+        password: dto.password ?? null,
+        maxUses: dto.maxUses ?? null,
+      };
+      const { data } = await api.post<CreateShareResponse>(
+        "/share-links",
+        payload
+      );
+      return data;
+    },
+
+    /** Lista por documento (JWT) */
+    async listByDocument(documentId: string) {
+      const { data } = await api.get<ShareLink[]>("/share-links", {
+        params: { documentId },
+      });
+      return data;
+    },
+
+    /** Revocar (JWT) */
+    async revoke(linkId: string) {
+      await api.patch(`/share-links/${linkId}`, { isActive: false });
+    },
+
+    /** Preview público (SIN JWT) con fallback al legado */
+    async previewPublic(token: string, password?: string) {
+      const tryFetch = async (url: string) => {
+        const res = await fetch(url, {
+          headers: password ? { "x-shared-password": password } : undefined,
+          credentials: "include",
+        });
+        return res;
+      };
+
+      // intento 1: nuevo
+      let res = await tryFetch(`${base}/share-links/${token}`);
+
+      // 403 => password requerida
+      if (res.status === 403) return { status: 403 } as const;
+
+      // 404 => probar legado
+      if (res.status === 404) {
+        res = await tryFetch(`${base}/shared/${token}`);
+        if (res.status === 403) return { status: 403 } as const;
+      }
+
+      if (!res.ok) {
+        const msg = await res.text().catch(() => "");
+        throw new Error(`Preview failed ${res.status}: ${msg}`);
+      }
+
+      const data = (await res.json()) as ShareLink;
+      return { status: 200, data } as const;
+    },
   };
 }

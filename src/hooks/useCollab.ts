@@ -1,197 +1,227 @@
-// hooks/useCollab.ts
+// src/hooks/useCollab.ts
 import { useAuth0 } from "@auth0/auth0-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { io, Socket } from "socket.io-client";
+import type { Socket } from "socket.io-client";
+import { useDocumentStore } from "./useDocument";
+import { createAuthedSocket } from "../lib/socket";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
-const AUDIENCE = import.meta.env.VITE_AUTH0_AUDIENCE ?? "";
-
-type ChangeListener = (change: any) => void;
-
-type PresenceUser = { id: string; name: string; color: string };
-type Cursor = {
-  userId: string;
-  x: number;
-  y: number;
-  name?: string;
-  color?: string;
+/** Presencia remota */
+export type Presence = {
+  userSub: string;
+  kind: "user" | "guest";
+  cursor?: { x: number; y: number };
+  selection?: any;
 };
 
-function randomColor() {
-  const colors = [
-    "#00E5FF",
-    "#FF7A00",
-    "#8A5CF6",
-    "#00D68F",
-    "#FF3D71",
-    "#FFC107",
-  ];
-  return colors[Math.floor(Math.random() * colors.length)];
-}
-function uuid() {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto)
-    return crypto.randomUUID();
-  return Math.random().toString(36).slice(2) + Date.now().toString(36);
+/** Estado de colaboración */
+export interface CollaborationState {
+  snapshot: { data: any; version: number } | null;
+  permission: "read" | "edit" | null;
+  sendChange: (ops: any) => void;
+  sendPresence: (presence: {
+    cursor?: { x: number; y: number };
+    selection?: any;
+  }) => void;
+  peers: Record<string, Presence>;
 }
 
-export function useCollab(documentId?: string, sharedToken?: string) {
-  const { isAuthenticated, user, getAccessTokenSilently } = useAuth0();
+const AUDIENCE = import.meta.env.VITE_AUTH0_AUDIENCE as string;
 
-  const socketRef = useRef<Socket | null>(null);
-  const selfRef = useRef<PresenceUser | null>(null);
+/** Throttle simple (ms) */
+function throttle<T extends (...args: any[]) => void>(fn: T, wait = 80): T {
+  let last = 0;
+  let timer: any;
+  return function (this: any, ...args: any[]) {
+    const now = Date.now();
+    const remaining = wait - (now - last);
+    if (remaining <= 0) {
+      clearTimeout(timer);
+      last = now;
+      fn.apply(this, args);
+    } else if (!timer) {
+      timer = setTimeout(() => {
+        last = Date.now();
+        timer = null;
+        fn.apply(this, args);
+      }, remaining);
+    }
+  } as T;
+}
 
-  const [isConnected, setIsConnected] = useState(false);
-  const [users, setUsers] = useState<PresenceUser[]>([]);
-  const [cursors, setCursors] = useState<Cursor[]>([]);
-  const [canEdit, setCanEdit] = useState<boolean>(true); // por ahora asumimos true
+export function useCollab(documentId?: string): CollaborationState {
+  const { getAccessTokenSilently } = useAuth0();
+  const sref = useRef<Socket | null>(null);
 
-  // listeners para cambios de documento
-  const changeListenersRef = useRef<Set<ChangeListener>>(new Set());
+  const [peers, setPeers] = useState<Record<string, Presence>>({});
+  const [snapshot, setSnapshot] = useState<{
+    data: any;
+    version: number;
+  } | null>(null);
+  const [permission, setPermission] = useState<"read" | "edit" | null>(null);
 
-  const onChange = useCallback((cb: ChangeListener) => {
-    changeListenersRef.current.add(cb);
-    return () => changeListenersRef.current.delete(cb);
-  }, []);
+  // Acceso directo a Zustand (sin usar hook dentro del efecto)
+  const getStore = useDocumentStore.getState;
+  const setDoc = useDocumentStore.getState().setDoc;
 
-  const sendChange = useCallback(
-    (payload: any) => {
-      const s = socketRef.current;
-      if (!s || !documentId) return;
-      // El gateway espera { documentId, change }
-      s.emit("document_change", { documentId, change: payload });
-    },
-    [documentId]
-  );
+  // Última presencia enviada (para re-emitir en reconexiones e inmediatamente tras join)
+  const lastPresence = useRef<{
+    cursor?: { x: number; y: number };
+    selection?: any;
+  }>({});
 
-  const updateCursor = useCallback(
-    (pos: { x: number; y: number }) => {
-      const s = socketRef.current;
-      const self = selfRef.current;
-      if (!s || !documentId || !self) return;
-      s.emit("cursor_update", { documentId, userId: self.id, cursor: pos });
-    },
-    [documentId]
-  );
-
-  // conectar socket y unirse a la room
+  /** Conexión + join */
   useEffect(() => {
     if (!documentId) return;
 
-    let cancelled = false;
+    let closed = false;
 
     (async () => {
-      // usuario local (para presencia/cursor)
-      const self: PresenceUser = {
-        id: uuid(),
-        name:
-          (user?.name as string) ?? (user?.nickname as string) ?? "Invitado",
-        color: randomColor(),
-      };
-      selfRef.current = self;
-
-      // token JWT (si hay sesión)
-      let jwt: string | undefined;
-      if (isAuthenticated) {
-        try {
-          jwt = await getAccessTokenSilently({
-            authorizationParams: { audience: AUDIENCE },
-          });
-        } catch {
-          // sin token -> seguimos como público
-          jwt = undefined;
-        }
-      }
-
-      if (cancelled) return;
-
-      const socket = io(`${API_BASE}/collab`, {
-        transports: ["websocket"],
-        auth: jwt ? { token: jwt } : {},
-        withCredentials: true,
+      // 1) JWT
+      const jwt = await getAccessTokenSilently({
+        authorizationParams: { audience: AUDIENCE },
       });
-      socketRef.current = socket;
 
-      socket.on("connect", () => {
-        setIsConnected(true);
-        // El gateway espera 'join_document' con: { documentId, token?, user }
-        socket.emit("join_document", {
-          documentId,
-          token: sharedToken,
-          user: self,
+      // 2) conectar socket
+      const s = createAuthedSocket(jwt);
+      sref.current = s;
+
+      s.on("connect", () => {
+        if (closed) return;
+
+        // 3) join
+        s.emit("join", { documentId }, (res: any) => {
+          if (closed) return;
+          if (!res?.ok) return;
+
+          // Snapshot/permission del server
+          const snap = res.snapshot || null;
+          setSnapshot(snap);
+          setPermission(res.permission || "edit");
+
+          // Hidratar el store inmediatamente para que ReactFlow pinte YA
+          const current = getStore().doc;
+          if (current) {
+            setDoc({
+              ...current,
+              data: snap?.data ?? current.data,
+              version: snap?.version ?? current.version,
+            });
+          }
+
+          // Presencia inicial (aunque el usuario aún no mueva el mouse)
+          const p = lastPresence.current || {};
+          s.emit("presence", { documentId, ...p, timestamp: Date.now() });
         });
       });
 
-      socket.on("disconnect", () => {
-        setIsConnected(false);
-        setUsers([]);
-        setCursors([]);
+      // 4) presencia
+      s.on("presence:joined", (p: Presence) => {
+        setPeers((prev) => ({ ...prev, [p.userSub]: p }));
       });
 
-      // Lista completa de usuarios presentes en el doc
-      socket.on("users_list", (list: PresenceUser[]) => {
-        setUsers(list ?? []);
+      s.on("presence", (p: Presence) => {
+        setPeers((prev) => ({
+          ...prev,
+          [p.userSub]: { ...(prev[p.userSub] || {}), ...p },
+        }));
       });
 
-      // Un usuario actualiza su cursor
-      socket.on(
-        "user_cursor",
-        (p: { userId: string; cursor: { x: number; y: number } }) => {
-          setCursors((prev) => {
-            const others = prev.filter((c) => c.userId !== p.userId);
-            const meta = (users || []).find((u) => u.id === p.userId);
-            return [
-              ...others,
-              {
-                userId: p.userId,
-                x: p.cursor.x,
-                y: p.cursor.y,
-                name: meta?.name,
-                color: meta?.color,
-              },
-            ];
+      s.on("presence:left", (p: Presence) => {
+        setPeers((prev) => {
+          const next = { ...prev };
+          delete next[p.userSub];
+          return next;
+        });
+      });
+
+      // 5) cambios remotos — hidratar store (fuente de verdad del canvas)
+      s.on(
+        "change",
+        (msg: {
+          version: number;
+          ops: any;
+          actor: string;
+          timestamp?: number;
+        }) => {
+          const current = getStore().doc;
+          if (!current) return;
+
+          const next = { ...current, version: msg.version };
+          if (msg.ops?.nodes)
+            next.data = { ...(next.data ?? {}), nodes: msg.ops.nodes };
+          if (msg.ops?.edges)
+            next.data = { ...(next.data ?? {}), edges: msg.ops.edges };
+          if (typeof msg.ops?.title === "string")
+            (next as any).title = msg.ops.title;
+
+          setDoc(next);
+          // Mantén el snapshot alineado para clientes que lo lean
+          setSnapshot((prev) => {
+            const base = prev ?? { data: { nodes: [], edges: [] }, version: 0 };
+            const snext = {
+              ...base,
+              version: msg.version,
+              data: { ...(base.data ?? {}) },
+            };
+            if (msg.ops?.nodes) snext.data.nodes = msg.ops.nodes;
+            if (msg.ops?.edges) snext.data.edges = msg.ops.edges;
+            if (typeof msg.ops?.title === "string")
+              (snext as any).title = msg.ops.title;
+            return snext;
           });
         }
       );
 
-      // Cambios de documento (broadcast desde el gateway)
-      socket.on("document_change", (change: any) => {
-        changeListenersRef.current.forEach((cb) => cb(change));
+      // 6) reconexión — reemitir presencia
+      s.io.on("reconnect", () => {
+        const p = lastPresence.current || {};
+        s.emit("presence", { documentId, ...p, timestamp: Date.now() });
       });
 
-      // (Opcional) si en algún momento emites 'session_info' con permiso:
-      // socket.on("session_info", (info: { permission: "read" | "edit" }) => {
-      //   setCanEdit(info?.permission === "edit");
-      // });
+      s.on("connect_error", (e) => {
+        console.warn("[collab] connect_error", e.message);
+      });
+
+      s.on("disconnect", () => {
+        if (!closed) console.warn("[collab] disconnected");
+      });
     })();
 
     return () => {
-      cancelled = true;
-      socketRef.current?.disconnect();
-      socketRef.current = null;
-      setIsConnected(false);
-      setUsers([]);
-      setCursors([]);
+      closed = true;
+      try {
+        sref.current?.disconnect();
+      } catch {}
+      sref.current = null;
+      setSnapshot(null);
+      setPermission(null);
+      setPeers({});
     };
-  }, [
-    documentId,
-    sharedToken,
-    isAuthenticated,
-    getAccessTokenSilently,
-    user?.name,
-    user?.nickname,
-  ]);
+  }, [documentId, getAccessTokenSilently]);
 
-  return {
-    // envío
-    sendChange,
-    // suscripción a cambios remotos
-    onChange,
-    // cursores/presencia
-    updateCursor,
-    cursors,
-    users,
-    // estado
-    canEdit,
-    isConnected,
-  };
+  /** Enviar cambio (patch) */
+  const sendChange = useCallback(
+    (ops: any) => {
+      if (!documentId || !sref.current) return;
+      // Usa la versión del store (si existe) o la del snapshot
+      const current = getStore().doc;
+      const version = current?.version ?? snapshot?.version ?? 0;
+      sref.current.emit("change", { documentId, version, ops });
+    },
+    [documentId, snapshot]
+  );
+
+  /** Enviar presencia (throttle interno) */
+  const _sendPresence = useCallback(
+    (p: { cursor?: { x: number; y: number }; selection?: any }) => {
+      if (!documentId || !sref.current) return;
+      lastPresence.current = p;
+      sref.current.emit("presence", { documentId, ...p });
+    },
+    [documentId]
+  );
+
+  const sendPresence = useRef(throttle(_sendPresence, 80)).current;
+
+  return { snapshot, permission, sendChange, sendPresence, peers };
 }
