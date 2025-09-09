@@ -32,7 +32,6 @@ export default function TemplateCard({ tpl, onUse }: Props) {
   const nodes = useMemo(() => (doc.data?.nodes as any[]) ?? [], [doc]);
   const edges = useMemo(() => (doc.data?.edges as any[]) ?? [], [doc]);
 
-  // Formatear fecha
   const formatDate = (dateString: string) => {
     if (!dateString) return "";
     const date = new Date(dateString);
@@ -43,7 +42,6 @@ export default function TemplateCard({ tpl, onUse }: Props) {
     });
   };
 
-  // Contar nodos y conexiones
   const nodeCount = nodes.length;
   const edgeCount = edges.length;
 
@@ -53,7 +51,7 @@ export default function TemplateCard({ tpl, onUse }: Props) {
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      {/* Preview con overlay */}
+      {/* Preview */}
       <div className="relative h-[160px] border-b border-[#3498DB]/20 bg-gradient-to-br from-[#3498DB]/5 to-white overflow-hidden">
         <div className="absolute inset-0">
           <ReactFlow
@@ -73,26 +71,23 @@ export default function TemplateCard({ tpl, onUse }: Props) {
           </ReactFlow>
         </div>
 
-        {/* Overlay con efecto de hover */}
         <div
           className={`absolute inset-0 bg-[#3498DB] bg-opacity-0 group-hover:bg-opacity-10 transition-all duration-300 ${
             isHovered ? "bg-opacity-10" : ""
           }`}
-        ></div>
+        />
 
-        {/* Badge de tipo */}
         <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm rounded-full px-3 py-1.5 text-xs font-medium text-[#3498DB] shadow-sm">
           {doc.kind || "Template"}
         </div>
       </div>
 
-      {/* Contenido de la tarjeta */}
+      {/* Contenido */}
       <div className="p-5">
         <h3 className="font-semibold text-[#2C3E50] text-base line-clamp-2 leading-tight mb-3">
           {doc.title}
         </h3>
 
-        {/* Metadatos */}
         <div className="flex items-center text-sm text-[#7F8C8D] mb-5">
           <div className="flex items-center mr-4">
             <FileText size={14} className="mr-1.5" />
@@ -108,10 +103,11 @@ export default function TemplateCard({ tpl, onUse }: Props) {
           )}
         </div>
 
-        {/* Botón de uso */}
         <button
           onClick={() => onUse(doc)}
-          className="w-full rounded-xl bg-[#3498DB] px-4 py-3 text-white hover:bg-[#2980B9] transition-all font-medium flex items-center justify-center gap-2 group/btn"
+          className="has-tip w-full rounded-xl bg-[#3498DB] px-4 py-3 text-white hover:bg-[#2980B9] transition-all font-medium flex items-center justify-center gap-2 group/btn"
+          data-tip={t("use")}
+          aria-label={t("use")}
         >
           <Plus size={18} className="transition-transform group-hover/btn:scale-110" />
           {t("use")}

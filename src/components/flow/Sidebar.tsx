@@ -51,7 +51,7 @@ const Sidebar: React.FC = () => {
     if (!isAuthenticated) {
       const uiLocale = i18n.language?.startsWith("en") ? "en" : "es";
       await loginWithRedirect({
-        appState: { returnTo: "/" },
+        appState: { returnTo: "/home" }, // 👈 volver a la app, no a la landing
         authorizationParams: { ui_locales: uiLocale },
       });
       return;
@@ -97,7 +97,7 @@ const Sidebar: React.FC = () => {
               <button
                 onClick={() =>
                   loginWithRedirect({
-                    appState: { returnTo: "/" },
+                    appState: { returnTo: "/home" }, // 👈 volver a /home
                     authorizationParams: { ui_locales: uiLocale },
                   })
                 }
@@ -160,8 +160,9 @@ const Sidebar: React.FC = () => {
 
         {/* Nav links */}
         <nav className="mt-4 flex flex-col gap-2" aria-label="Primary">
+          {/* 👇 Inicio ahora va a /home, no a / */}
           <NavLink
-            to="/"
+            to="/home"
             end
             className={({ isActive }) =>
               `${linkBase} ${isActive ? linkActive : ""}`
@@ -170,6 +171,7 @@ const Sidebar: React.FC = () => {
             <House className="text-white" />
             <span className="text-white">{t("sidebar.home")}</span>
           </NavLink>
+
           <NavLink
             to="/documents"
             className={({ isActive }) =>
@@ -179,6 +181,7 @@ const Sidebar: React.FC = () => {
             <BookText className="text-white" />
             <span className="text-white">{t("sidebar.documents")}</span>
           </NavLink>
+
           <NavLink
             to="/templates"
             className={({ isActive }) =>

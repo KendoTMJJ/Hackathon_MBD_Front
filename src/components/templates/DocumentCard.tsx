@@ -19,8 +19,10 @@ export default function DocumentCard({
   onDeleted?: (id: string) => void;
 }) {
   const { t } = useTranslation("common", { keyPrefix: "documents" });
+
   const nodes = useMemo(() => doc?.data?.nodes ?? [], [doc]);
   const edges = useMemo(() => doc?.data?.edges ?? [], [doc]);
+
   const { remove } = useDocumentsApi();
   const [deleting, setDeleting] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
@@ -29,8 +31,10 @@ export default function DocumentCard({
   const handleDelete = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (deleting) return;
+
     const ok = window.confirm(t("deleteConfirm", { name: doc.title }));
     if (!ok) return;
+
     try {
       setDeleting(true);
       abortRef.current?.abort();
@@ -52,7 +56,6 @@ export default function DocumentCard({
     }
   };
 
-  // Formatear fecha de modificación
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString(undefined, {
@@ -62,7 +65,6 @@ export default function DocumentCard({
     });
   };
 
-  // Contar nodos y conexiones
   const nodeCount = nodes.length;
   const edgeCount = edges.length;
 
@@ -72,8 +74,17 @@ export default function DocumentCard({
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       onClick={() => onOpen(doc)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpen(doc);
+        }
+      }}
+      aria-label={t("open")}
     >
-      {/* Preview del diagrama con overlay */}
+      {/* Preview */}
       <div className="h-[160px] relative border-b border-[#3498DB]/20 bg-gradient-to-br from-[#3498DB]/5 to-white overflow-hidden">
         <ReactFlow
           nodes={nodes as any}
@@ -91,35 +102,39 @@ export default function DocumentCard({
           <Background color="#3498DB10" gap={16} />
         </ReactFlow>
 
-        {/* Overlay con efecto de hover */}
+        {/* Overlay hover */}
         <div
-          className={`absolute inset-0 bg-[#3498DB] bg-opacity-0 group-hover:bg-opacity-10 transition-all duration-300 flex items-center justify-center ${
+          className={`pointer-events-none absolute inset-0 bg-[#3498DB] bg-opacity-0 group-hover:bg-opacity-10 transition-all duration-300 flex items-center justify-center ${
             isHovered ? "bg-opacity-10" : ""
           }`}
         >
           {isHovered && (
-            <div className="flex items-center justify-center bg-white rounded-full p-3 shadow-lg">
+            <div className="pointer-events-none flex items-center justify-center bg-white rounded-full p-3 shadow-lg">
               <ExternalLink size={18} className="text-[#3498DB]" />
             </div>
           )}
         </div>
       </div>
 
-      {/* Contenido de la tarjeta */}
+      {/* Contenido */}
       <div className="p-5">
         <div className="flex items-start justify-between mb-3">
           <h3 className="font-semibold text-[#2C3E50] text-base line-clamp-2 leading-tight flex-1 mr-3">
             {doc.title}
           </h3>
+
           <button
             onClick={handleDelete}
             disabled={deleting}
             title={t("delete")}
-            className={`inline-flex items-center gap-1.5 rounded-xl p-2 text-xs transition-all ${
+            className={`has-tip inline-flex items-center gap-1.5 rounded-xl p-2 text-xs transition-all ${
               deleting
                 ? "cursor-wait text-red-400"
                 : "text-[#7F8C8D] hover:text-red-500 hover:bg-red-50"
             }`}
+            data-tip={t("delete")}
+            aria-label={t("delete")}
+            aria-busy={deleting}
           >
             <Trash2 size={16} />
           </button>
@@ -137,14 +152,16 @@ export default function DocumentCard({
           </span>
         </div>
 
-        {/* Botón de acción */}
+        {/* Abrir */}
         <button
           onClick={(e) => {
             e.stopPropagation();
             onOpen(doc);
           }}
           disabled={deleting}
-          className="w-full rounded-xl bg-[#3498DB] px-4 py-2.5 text-white hover:bg-[#2980B9] disabled:opacity-50 transition-all font-medium flex items-center justify-center gap-2"
+          className="has-tip w-full rounded-xl bg-[#3498DB] px-4 py-2.5 text-white hover:bg-[#2980B9] disabled:opacity-50 transition-all font-medium flex items-center justify-center gap-2"
+          data-tip={t("open")}
+          aria-label={t("open")}
         >
           <ExternalLink size={16} />
           {t("open")}
