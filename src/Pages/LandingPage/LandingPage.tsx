@@ -2,7 +2,7 @@ import React from "react";
 import { Link } from "react-router-dom";
 
 /** Rutas públicas (public/images) */
-const LOGO_FULL = "/images/LOGO.png";
+const LOGO_FULL = "/images/logo.png";
 const LOGO_ISO = "/images/LOGO1.png";
 const HERO_IMG = "/images/hero.jpg";
 const HERO_MP4 = "/images/hero.mp4";
@@ -436,8 +436,14 @@ export default function LandingPage() {
         footer{ padding:56px 0 28px;border-top:1px solid var(--line);color:#5b6470;background:#fff;position:relative;text-align:center }
         footer:before{content:'';position:absolute;top:0;left:0;width:100%;height:1px;background:linear-gradient(to right,transparent,var(--line),transparent)}
         .fgrid{ display:grid;grid-template-columns:repeat(3, minmax(220px,1fr));gap:28px; justify-items:center;text-align:center;max-width:920px;margin:0 auto; }
-        .brand{display:flex;gap:12px;align-items:center;margin-bottom:16px;justify-content:center}
-        .brand img.logo{height:30px}
+        .brand{display:flex;gap:10px;align-items:center;margin-bottom:16px;justify-content:center}
+        .brand img.logo{
+          height:22px;           /* más pequeño */
+          width:auto;
+          object-fit:contain;
+          display:block;
+          image-rendering:auto;
+        }
         .flist{display:grid;gap:10px}
         .social{display:flex;gap:10px;margin-top:18px;justify-content:center}
         .icon-btn{display:grid;place-items:center;width:38px;height:38px;border-radius:10px;background:#EAF2F9;border:1px solid var(--line);color:#31455a;transition:var(--transition)}
@@ -465,6 +471,7 @@ export default function LandingPage() {
           .pro-carousel-controls { padding: 0 6px; }
           .pro-carousel-control { width:34px; height:34px; }
           .pro-carousel-indicators { bottom: 10px; }
+          .brand img.logo{ height:20px; }  /* aún más pequeño en mobile */
         }
       `}</style>
 
