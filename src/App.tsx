@@ -1,20 +1,13 @@
 // src/App.tsx
 import { Routes, Route, Navigate } from "react-router-dom";
-// import HomePage from "./Pages/HomePage";
-// import BoardPage from "./Pages/BoardPage";
-// import ProfilePage from "./Pages/ProfilePage";
-// import LandingPage from "./Pages/LandingPage/LandingPage";
-// import RequireAuth from "./components/auth/RequireAuth";
-// import ThemeToggle from "./components/home/ThemeToggle";
-// import SharedDocumentPage from "./pages/SharedDocumentPage"; // ⬅️ NUEVO
 
-import "./theme.css";
-import HomePage from "./pages/HomePage";
-import SharedDocumentPage from "./pages/SharedDocumentPage";
-import LandingPage from "./pages/LandingPage/LandingPage";
 import RequireAuth from "./components/auth/RequireAuth";
-import BoardPage from "./pages/BoardPage";
-import ProfilePage from "./pages/ProfilePage";
+import LandingPage from "./Pages/LandingPage/LandingPage";
+import HomePage from "./Pages/HomePage";
+import SharedDocumentPage from "./Pages/SharedDocumentPage";
+import BoardPage from "./Pages/BoardPage";
+import ProfilePage from "./Pages/ProfilePage";
+
 
 export default function App() {
   return (
@@ -24,20 +17,38 @@ export default function App() {
     >
       <main className="min-h-dvh">
         <Routes>
+          {/* Landing principal (página pública de marketing) */}
+          <Route path="/" element={<LandingPage />} />
           {/* Público */}
           <Route path="/" element={<HomePage />} />
           <Route path="/templates" element={<HomePage />} />
           <Route path="/documents" element={<HomePage />} />
           <Route path="/shared/:token" element={<SharedDocumentPage />} />{" "}
-          {/* ⬅️ NUEVO */}
-          {/* Protegido */}
-          =======
-          {/* Landing principal */}
-          <Route path="/" element={<LandingPage />} />
-          {/* Home (opcional) */}
-          <Route path="/home" element={<HomePage />} />
-          <Route path="/templates" element={<HomePage />} />
-          <Route path="/documents" element={<HomePage />} />
+          {/* Zona de app */}
+          <Route
+            path="/home"
+            element={
+              <RequireAuth>
+                <HomePage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/templates"
+            element={
+              <RequireAuth>
+                <HomePage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/documents"
+            element={
+              <RequireAuth>
+                <HomePage />
+              </RequireAuth>
+            }
+          />
           {/* Board protegido */}
           <Route
             path="/Board/:documentId"
@@ -64,10 +75,10 @@ export default function App() {
               </RequireAuth>
             }
           />
-          {/* Fallback */}
-          <Route path="*" element={<Navigate to="/" replace />} />
+          {/* Fallback: rutas desconocidas -> Home (no a la landing) */}
+          <Route path="*" element={<Navigate to="/home" replace />} />
         </Routes>
       </main>
-    </div>
-  );
+    </div>
+  );
 }

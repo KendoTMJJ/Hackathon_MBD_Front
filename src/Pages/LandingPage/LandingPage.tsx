@@ -3,12 +3,12 @@ import { Link } from "react-router-dom";
 
 /** Rutas públicas (public/images) */
 const LOGO_FULL = "/images/LOGO.png";
-const LOGO_ISO  = "/images/LOGO1.png";
-const HERO_IMG  = "/images/hero.jpg";
-const HERO_MP4  = "/images/hero.mp4";
-const SAMPLE_1  = "/images/home.png";
-const SAMPLE_2  = "/images/sample-2.jpg";
-const SAMPLE_3  = "/images/sample-3.jpg";
+const LOGO_ISO = "/images/LOGO1.png";
+const HERO_IMG = "/images/hero.jpg";
+const HERO_MP4 = "/images/hero.mp4";
+const SAMPLE_1 = "/images/home.png";
+const SAMPLE_2 = "/images/documentos.png";
+const SAMPLE_3 = "/images/plantillas.png";
 const USE_VIDEO_HERO = true;
 
 /* =========================
@@ -45,10 +45,11 @@ function ProfessionalCarousel({ children }: CarouselProps) {
   const goToNext = () => goToSlide(currentIndex + 1);
 
   // Swipe
-  const handleTouchStart = (e: React.TouchEvent) => (touchStartX.current = e.touches[0].clientX);
+  const handleTouchStart = (e: React.TouchEvent) =>
+    (touchStartX.current = e.touches[0].clientX);
   const handleTouchEnd = (e: React.TouchEvent) => {
     const dx = e.changedTouches[0].clientX - touchStartX.current;
-    if (Math.abs(dx) > 50) (dx < 0 ? goToNext() : goToPrev());
+    if (Math.abs(dx) > 50) dx < 0 ? goToNext() : goToPrev();
   };
 
   // Teclado
@@ -64,7 +65,8 @@ function ProfessionalCarousel({ children }: CarouselProps) {
   // Autoplay (pausa al hover y si la pestaña no está visible)
   React.useEffect(() => {
     const tick = () => {
-      if (!isTransitioning && !paused && document.visibilityState === "visible") goToNext();
+      if (!isTransitioning && !paused && document.visibilityState === "visible")
+        goToNext();
     };
     const id = setInterval(tick, 5000);
     return () => clearInterval(id);
@@ -85,11 +87,17 @@ function ProfessionalCarousel({ children }: CarouselProps) {
         className="pro-carousel-track"
         style={{
           transform: `translateX(-${currentIndex * 100}%)`,
-          transition: isTransitioning ? "transform 0.6s cubic-bezier(0.16, 1, 0.3, 1)" : "none",
+          transition: isTransitioning
+            ? "transform 0.6s cubic-bezier(0.16, 1, 0.3, 1)"
+            : "none",
         }}
       >
         {slides.map((slide, index) => (
-          <div key={index} className="pro-carousel-slide" aria-hidden={index !== currentIndex}>
+          <div
+            key={index}
+            className="pro-carousel-slide"
+            aria-hidden={index !== currentIndex}
+          >
             {slide}
           </div>
         ))}
@@ -97,24 +105,50 @@ function ProfessionalCarousel({ children }: CarouselProps) {
 
       {/* Controles */}
       <div className="pro-carousel-controls" aria-hidden="false">
-        <button className="pro-carousel-control pro-carousel-control-prev" onClick={goToPrev} aria-label="Slide anterior">
+        <button
+          className="pro-carousel-control pro-carousel-control-prev"
+          onClick={goToPrev}
+          aria-label="Slide anterior"
+        >
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-            <path d="M15 18L9 12L15 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <path
+              d="M15 18L9 12L15 6"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
           </svg>
         </button>
-        <button className="pro-carousel-control pro-carousel-control-next" onClick={goToNext} aria-label="Slide siguiente">
+        <button
+          className="pro-carousel-control pro-carousel-control-next"
+          onClick={goToNext}
+          aria-label="Slide siguiente"
+        >
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-            <path d="M9 18L15 12L9 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <path
+              d="M9 18L15 12L9 6"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
           </svg>
         </button>
       </div>
 
       {/* Indicadores */}
-      <div className="pro-carousel-indicators" role="tablist" aria-label="Indicadores">
+      <div
+        className="pro-carousel-indicators"
+        role="tablist"
+        aria-label="Indicadores"
+      >
         {slides.map((_, index) => (
           <button
             key={index}
-            className={`pro-carousel-indicator ${index === currentIndex ? "active" : ""}`}
+            className={`pro-carousel-indicator ${
+              index === currentIndex ? "active" : ""
+            }`}
             onClick={() => goToSlide(index)}
             aria-current={index === currentIndex}
             aria-label={`Ir al slide ${index + 1}`}
@@ -133,7 +167,11 @@ function Slide({ title, img, children, fit = "cover" }: SlideProps) {
   return (
     <div className="slide">
       <article className="panel panel--hover">
-        <div className={`panel__thumb ${fit === "contain" ? "thumb--contain" : ""}`}>
+        <div
+          className={`panel__thumb ${
+            fit === "contain" ? "thumb--contain" : ""
+          }`}
+        >
           <img src={img} alt={title} loading="lazy" />
         </div>
         <div className="panel__body">
@@ -472,17 +510,26 @@ export default function LandingPage() {
         <div className="wrap grid hero grid">
           <div>
             <h1>BLACK HAT ARCHETYPE</h1>
-            <p className="muted">Experiencias digitales con estética clara, precisión técnica y performance real.</p>
+            <p className="muted">
+              Experiencias digitales con estética clara, precisión técnica y
+              performance real.
+            </p>
             <div className="actions">
-              <Link to="/home" className="btn">EMPIEZA AHORA</Link>
+              <Link to="/home" className="btn">
+                EMPIEZA AHORA
+              </Link>
             </div>
             <div className="media no-invert">
               {USE_VIDEO_HERO ? (
                 <video
                   src={HERO_MP4}
-                  autoPlay muted loop playsInline
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
                   onError={(e) => {
-                    (e.currentTarget as HTMLVideoElement).style.display = "none";
+                    (e.currentTarget as HTMLVideoElement).style.display =
+                      "none";
                     const img = document.getElementById("hero-fallback");
                     if (img) img.removeAttribute("data-hidden");
                   }}
@@ -500,7 +547,10 @@ export default function LandingPage() {
           </div>
 
           {/* Logo animado (rápido) */}
-          <aside className="brandCard no-invert" aria-label="Black Hat Archetype">
+          <aside
+            className="brandCard no-invert"
+            aria-label="Black Hat Archetype"
+          >
             <div className="logoFrame">
               <span className="logoAura" />
               <img className="logoIso" src={LOGO_ISO} alt="BHA isotipo" />
@@ -512,11 +562,26 @@ export default function LandingPage() {
       {/* POR QUÉ */}
       <section className="section">
         <div className="wrap">
-          <div className="head"><h2>Por qué elegir BLACK HAT ARCHETYPE</h2></div>
+          <div className="head">
+            <h2>Por qué elegir BLACK HAT ARCHETYPE</h2>
+          </div>
           <div className="grid-3">
-            <article className="feature"><h4>Estética de alto impacto</h4><p className="muted">Tipografías grandes, contraste correcto y micro-interacciones.</p></article>
-            <article className="feature"><h4>Rápido y medible</h4><p className="muted">SEO y analítica para entender tráfico y conversión.</p></article>
-            <article className="feature"><h4>Integraciones</h4><p className="muted">Email, redes y herramientas sin fricción.</p></article>
+            <article className="feature">
+              <h4>Estética de alto impacto</h4>
+              <p className="muted">
+                Tipografías grandes, contraste correcto y micro-interacciones.
+              </p>
+            </article>
+            <article className="feature">
+              <h4>Rápido y medible</h4>
+              <p className="muted">
+                SEO y analítica para entender tráfico y conversión.
+              </p>
+            </article>
+            <article className="feature">
+              <h4>Integraciones</h4>
+              <p className="muted">Email, redes y herramientas sin fricción.</p>
+            </article>
           </div>
         </div>
       </section>
@@ -524,16 +589,30 @@ export default function LandingPage() {
       {/* SHOWCASE - CARRUSEL COMPACTO */}
       <section className="section" id="showcase">
         <div className="wrap">
-          <div className="head"><h2>Showcase</h2></div>
+          <div className="head">
+            <h2>Showcase</h2>
+          </div>
           <ProfessionalCarousel>
-            <Slide title="Landing “Home”" img={SAMPLE_1} fit="contain">
-              Panel principal con acceso rápido a <strong>Diagnóstico de Seguridad</strong>, <strong>Prueba de Penetración</strong>, <strong>Ponderación de Seguridad</strong> y <strong>Análisis Forense</strong>. Acciones directas para cargar plantillas o crear diagramas en blanco.
+            <Slide title="Inicio" img={SAMPLE_1} fit="contain">
+              Panel principal con acceso rápido a{" "}
+              <strong>Diagnóstico de Seguridad</strong>,{" "}
+              <strong>Prueba de Penetración</strong>,{" "}
+              <strong>Ponderación de Seguridad</strong> y{" "}
+              <strong>Análisis Forense</strong>. Acciones directas para cargar
+              plantillas o crear diagramas en blanco.
             </Slide>
-            <Slide title="Campaña Performance" img={SAMPLE_2}>
-              Bloques modulares: héroe, valor, features, pasos y cierre — optimizados para conversión.
+
+            <Slide title="Documentos" img={SAMPLE_2}>
+              Vista de trabajo con tus diagramas guardados:{" "}
+              <strong>previsualización</strong>, <strong>fecha</strong>,{" "}
+              <strong>nodos y conexiones</strong>. Abre, elimina o crea un{" "}
+              <strong>nuevo documento.</strong>
             </Slide>
-            <Slide title="Brand Clean" img={SAMPLE_3}>
-              Tipografía XL, paneles claros, sombras suaves y jerarquía visual sólida.
+
+            <Slide title="Plantillas" img={SAMPLE_3}>
+              Catálogo de <strong>plantillas reutilizables</strong> con preview
+              y métricas. Úsalas para iniciar más rápido o crea una{" "}
+              <strong>nueva plantilla</strong> lista para personalizar.
             </Slide>
           </ProfessionalCarousel>
         </div>
@@ -542,11 +621,31 @@ export default function LandingPage() {
       {/* PASOS */}
       <section className="section">
         <div className="wrap">
-          <div className="head"><h2>Cómo funciona</h2></div>
+          <div className="head">
+            <h2>Cómo funciona</h2>
+          </div>
           <div className="grid-3">
-            <article className="step"><div className="num">01</div><h4>Elige estilo</h4><p className="muted">Definimos línea visual y objetivo de la landing.</p></article>
-            <article className="step"><div className="num">02</div><h4>Personaliza</h4><p className="muted">Secciones: hero, valor, features y carrusel.</p></article>
-            <article className="step"><div className="num">03</div><h4>Lanza y mide</h4><p className="muted">Publica y conecta analítica para optimizar conversión.</p></article>
+            <article className="step">
+              <div className="num">01</div>
+              <h4>Elige estilo</h4>
+              <p className="muted">
+                Definimos línea visual y objetivo de la landing.
+              </p>
+            </article>
+            <article className="step">
+              <div className="num">02</div>
+              <h4>Personaliza</h4>
+              <p className="muted">
+                Secciones: hero, valor, features y carrusel.
+              </p>
+            </article>
+            <article className="step">
+              <div className="num">03</div>
+              <h4>Lanza y mide</h4>
+              <p className="muted">
+                Publica y conecta analítica para optimizar conversión.
+              </p>
+            </article>
           </div>
         </div>
       </section>
@@ -554,11 +653,28 @@ export default function LandingPage() {
       {/* FAQ */}
       <section className="section">
         <div className="wrap">
-          <div className="head"><h2>FAQ</h2></div>
+          <div className="head">
+            <h2>FAQ</h2>
+          </div>
           <div className="faq">
-            <details><summary>¿Puedo usar mis propias imágenes y video?</summary><p>Sí. Colócalas en <code>/public/images</code> y referencia con <code>/images/archivo.ext</code>.</p></details>
-            <details><summary>¿Cómo cambio el tema?</summary><p>Si ya quitaste el toggler, quedas en modo claro estable.</p></details>
-            <details><summary>¿Se puede medir conversión?</summary><p>Estructura pensada para analítica: hero + CTA, valor, carrusel y pasos.</p></details>
+            <details>
+              <summary>¿Puedo usar mis propias imágenes y video?</summary>
+              <p>
+                Sí. Colócalas en <code>/public/images</code> y referencia con{" "}
+                <code>/images/archivo.ext</code>.
+              </p>
+            </details>
+            <details>
+              <summary>¿Cómo cambio el tema?</summary>
+              <p>Si ya quitaste el toggler, quedas en modo claro estable.</p>
+            </details>
+            <details>
+              <summary>¿Se puede medir conversión?</summary>
+              <p>
+                Estructura pensada para analítica: hero + CTA, valor, carrusel y
+                pasos.
+              </p>
+            </details>
           </div>
         </div>
       </section>
@@ -569,25 +685,71 @@ export default function LandingPage() {
           <div className="fgrid">
             <div>
               <div className="brand">
-                <img className="logo" src={LOGO_FULL} alt="Black Hat Archetype" />
-                <div><strong>BLACK HAT ARCHETYPE</strong></div>
+                <img
+                  className="logo"
+                  src={LOGO_FULL}
+                  alt="Black Hat Archetype"
+                />
+                <div>
+                  <strong>BLACK HAT ARCHETYPE</strong>
+                </div>
               </div>
               <div className="social">
                 <a href="#" aria-label="Github" className="icon-btn no-invert">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                    <path d="M12 .5A12 12 0 0 0 0 12.7c0 5.4 3.4 10 8.1 11.6.6.1.8-.3.8-.6v-2c-3.3.8-4-1.6-4-1.6-.5-1.3-1.2-1.6-1.2-1.6-1-.7.1-.7.1-.7 1.1.1 1.6 1.2 1.6 1.2 1 .1.7 2 2.9 1.4.1-.8.4-1.3.7-1.6-2.7-.3-5.5-1.4-5.5-6.2 0-1.4.5-2.5 1.2-3.4-.1-.3-.6-1.7.1-3.5 0 0 1-.3 3.5 1.3a12 12 0 0 1 6.4 0c2.5-1.6 3.5-1.3 3.5-1.3.7 1.8.2 3.2.1 3.5.8.9 1.2 2 1.2 3.4 0 4.8-2.8 5.9-5.6 6.2.4.3.8 1 .8 2.1v3.1c0 .3.2.7.8.6A12.2 12.2 0 0 0 24 12.7 12 12 0 0 0 12 .5z"/>
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    aria-hidden="true"
+                  >
+                    <path d="M12 .5A12 12 0 0 0 0 12.7c0 5.4 3.4 10 8.1 11.6.6.1.8-.3.8-.6v-2c-3.3.8-4-1.6-4-1.6-.5-1.3-1.2-1.6-1.2-1.6-1-.7.1-.7.1-.7 1.1.1 1.6 1.2 1.6 1.2 1 .1.7 2 2.9 1.4.1-.8.4-1.3.7-1.6-2.7-.3-5.5-1.4-5.5-6.2 0-1.4.5-2.5 1.2-3.4-.1-.3-.6-1.7.1-3.5 0 0 1-.3 3.5 1.3a12 12 0 0 1 6.4 0c2.5-1.6 3.5-1.3 3.5-1.3.7 1.8.2 3.2.1 3.5.8.9 1.2 2 1.2 3.4 0 4.8-2.8 5.9-5.6 6.2.4.3.8 1 .8 2.1v3.1c0 .3.2.7.8.6A12.2 12.2 0 0 0 24 12.7 12 12 0 0 0 12 .5z" />
                   </svg>
                 </a>
                 <a href="#" aria-label="X" className="icon-btn no-invert">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                    <path d="M18.244 2H21l-6.57 7.5L22 22h-6.99l-4.35-5.72L5.6 22H3l7.07-8.07L2 2h7.07l4.06 5.44L18.244 2zm-1.02 18h1.9L8.3 4H6.33l10.89 16z"/>
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    aria-hidden="true"
+                  >
+                    <path d="M18.244 2H21l-6.57 7.5L22 22h-6.99l-4.35-5.72L5.6 22H3l7.07-8.07L2 2h7.07l4.06 5.44L18.244 2zm-1.02 18h1.9L8.3 4H6.33l10.89 16z" />
                   </svg>
                 </a>
-                <a href="https://instagram.com/tu_usuario" target="_blank" rel="noreferrer" aria-label="Instagram" className="icon-btn no-invert">
-                  <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
-                    <rect x="2" y="2" width="20" height="20" rx="5" ry="5" fill="none" stroke="currentColor" strokeWidth="2"/>
-                    <circle cx="12" cy="12" r="3.5" fill="none" stroke="currentColor" strokeWidth="2"/>
-                    <circle cx="17.5" cy="6.5" r="1.2" fill="currentColor"/>
+                <a
+                  href="https://instagram.com/tu_usuario"
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label="Instagram"
+                  className="icon-btn no-invert"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="20"
+                    height="20"
+                    aria-hidden="true"
+                  >
+                    <rect
+                      x="2"
+                      y="2"
+                      width="20"
+                      height="20"
+                      rx="5"
+                      ry="5"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    />
+                    <circle
+                      cx="12"
+                      cy="12"
+                      r="3.5"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    />
+                    <circle cx="17.5" cy="6.5" r="1.2" fill="currentColor" />
                   </svg>
                 </a>
               </div>
