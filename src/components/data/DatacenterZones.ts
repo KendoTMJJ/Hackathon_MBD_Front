@@ -48,7 +48,7 @@ export const datacenterZones: DatacenterZone[] = [
     id: "dc-firewall-ips/id",
     name: "Firewall IPS/IDS",
     description:
-      "Sistema de firewall perimetral con funciones de detección y prevención de intrusiones para proteger el datacenter frente a accesos no autorizados y ataques avanzados.",
+      "Sistema de firewall perimetral con funciones de detección y prevención de intrusiones para proteger el datacenter.",
     caracteristics: "El Firewall IPS/IDS combina las funciones de un cortafuegos tradicional con las capacidades de detección y prevención de intrusiones. Por un lado, actúa "+
     "como una barrera que filtra el tráfico entrante y saliente según políticas de seguridad establecidas; y por otro, analiza en profundidad el tráfico para identificar comportamientos sospechosos, posibles ataques o vulnerabilidades explotadas. Mientras el IDS detecta y alerta sobre anomalías, el IPS puede detenerlas en tiempo real, ofreciendo así una protección más completa frente a amenazas externas e internas.",
     color: "#E51212",
@@ -59,7 +59,7 @@ export const datacenterZones: DatacenterZone[] = [
     id: "dc-admin-canal",
     name: "Administrador de Canal",
     description:
-      "Componente de seguridad perimetral encargado de la gestión de tráfico y la mitigación de amenazas a nivel de canal en el datacenter.",
+      "Componente de seguridad perimetral encargado de la gestión de tráfico y la mitigación de amenazas.",
     caracteristics: "El Administrador de Canal es un componente que se encarga de gestionar y supervisar las conexiones de comunicación entre diferentes "+
     "sistemas y servicios, especialmente en entornos de red donde se maneja un alto volumen de datos. Su función es garantizar que el flujo de información se realice de forma ordenada, segura y eficiente, evitando saturaciones, pérdidas de información o accesos indebidos en los canales de comunicación críticos.",
     color: "#E53935",

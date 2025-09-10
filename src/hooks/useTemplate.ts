@@ -1,5 +1,6 @@
-import type { TemplateEntity } from "../models";
+import type { AxiosInstance } from "axios";
 import { useApi } from "./useApi";
+import type { TemplateEntity } from "../models";
 
 function normalizeTemplate(raw: any): TemplateEntity {
   return {
@@ -15,25 +16,28 @@ function normalizeTemplate(raw: any): TemplateEntity {
   } as TemplateEntity;
 }
 
-export function useTemplates() {
-  const api = useApi();
+type TemplatesApiOpts = {
+  api?: AxiosInstance;
+  isShared?: boolean;
+  sharedToken?: string;
+};
+
+export function useTemplates(opts: TemplatesApiOpts = {}) {
+  const api =
+    opts.api ?? useApi({ isShared: opts.isShared, sharedToken: opts.sharedToken });
 
   return {
-    /** Lista plantillas (tu controlador exige JWT) */
     async list(includeArchived = false): Promise<TemplateEntity[]> {
-      const { data } = await api.get(`/templates`, {
-        params: { includeArchived },
-      });
-      return (data as any[]).map(normalizeTemplate);
+      const { data } = await api.get(`/templates`, { params: { includeArchived } });
+      const arr = Array.isArray(data) ? data : data?.items ?? [];
+      return arr.map(normalizeTemplate);
     },
 
-    /** Obtiene una plantilla por id */
     async get(id: string): Promise<TemplateEntity> {
       const { data } = await api.get(`/templates/${id}`);
       return normalizeTemplate(data);
     },
 
-    /** Crea una plantilla (CreateTemplateDto). Si tu servicio usa dto.kind, puedes pasarlo opcional */
     async create(body: {
       title: string;
       data: any;
@@ -44,7 +48,6 @@ export function useTemplates() {
       return normalizeTemplate(data);
     },
 
-    /** Actualiza plantilla con lock optimista (UpdateTemplateDto requiere version) */
     async update(
       id: string,
       body: { version: number; data: any; title?: string; description?: string }
@@ -53,19 +56,16 @@ export function useTemplates() {
       return normalizeTemplate(data);
     },
 
-    /** Archivado lógico */
     async archive(id: string) {
       const { data } = await api.post(`/templates/${id}/archive`);
       return normalizeTemplate(data);
     },
 
-    /** Desarchivar */
     async unarchive(id: string) {
       const { data } = await api.post(`/templates/${id}/unarchive`);
       return normalizeTemplate(data);
     },
 
-    /** Eliminación física (si la usas) */
     async remove(id: string) {
       await api.delete(`/templates/${id}`);
     },

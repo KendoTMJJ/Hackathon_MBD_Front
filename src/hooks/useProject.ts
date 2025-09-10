@@ -1,13 +1,21 @@
+import type { AxiosInstance } from "axios";
 import { useApi } from "./useApi";
 import type { Project } from "../models";
 
-export function useProject() {
-  const api = useApi();
+type ProjectApiOpts = {
+  api?: AxiosInstance;
+  isShared?: boolean;
+  sharedToken?: string;
+};
+
+export function useProject(opts: ProjectApiOpts = {}) {
+  const api =
+    opts.api ?? useApi({ isShared: opts.isShared, sharedToken: opts.sharedToken });
 
   return {
     async list(): Promise<Project[]> {
       const { data } = await api.get<Project[]>("/projects");
-      return data;
+      return Array.isArray(data) ? data : [];
     },
 
     async get(id: string): Promise<Project> {
@@ -20,16 +28,10 @@ export function useProject() {
       return data;
     },
 
-    /**
-     * Devuelve el primer proyecto del usuario. Si no hay, lo crea.
-     * Puedes pasar el nombre por defecto (por ejemplo "My Diagrams").
-     */
     async ensureDefault(defaultName = "My Diagrams"): Promise<Project> {
       const { data: projs } = await api.get<Project[]>("/projects");
       if (Array.isArray(projs) && projs.length > 0) return projs[0];
-      const { data } = await api.post<Project>("/projects", {
-        name: defaultName,
-      });
+      const { data } = await api.post<Project>("/projects", { name: defaultName });
       return data;
     },
   };

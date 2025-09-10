@@ -10,7 +10,7 @@ export interface User {
 }
 
 export interface DocumentChange {
-  type: 'nodes' | 'edges' | 'sheet_update' | 'sheet_create' | 'sheet_delete' | 'sheet_reorder';
+  type: 'nodes' | 'edges' | 'sheet_update' | 'sheet_create' | 'sheet_delete' | 'sheet_reorder' | 'snapshot';
   data: any;
   userId: string;
   timestamp: number;

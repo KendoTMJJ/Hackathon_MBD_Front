@@ -1,3 +1,4 @@
+// src/hooks/useDocument.ts
 import { create } from "zustand";
 import { useApi } from "./useApi";
 import type { DocumentEntity, DocumentData } from "../models";
@@ -5,21 +6,21 @@ import type { DocumentEntity, DocumentData } from "../models";
 /** Normaliza un Document desde camel o snake */
 function normalizeDoc(raw: any): DocumentEntity {
   return {
-    id: raw.id ?? raw.cod_document,
-    title: raw.title ?? raw.title_document,
-    kind: raw.kind ?? raw.kind_document,
-    data: raw.data ?? raw.data_document ?? { nodes: [], edges: [] },
-    version: raw.version,
-    templateId: raw.templateId ?? raw.template_id ?? null,
-    isArchived: raw.isArchived ?? raw.is_archived ?? false,
-    createdBy: raw.createdBy ?? raw.created_by,
-    projectId: raw.projectId ?? raw.project_id,
-    createdAt: raw.createdAt ?? raw.created_at,
-    updatedAt: raw.updatedAt ?? raw.updated_at,
+    id: raw?.id ?? raw?.cod_document,
+    title: raw?.title ?? raw?.title_document ?? "",
+    kind: raw?.kind ?? raw?.kind_document ?? "diagram",
+    data: raw?.data ?? raw?.data_document ?? { nodes: [], edges: [] },
+    version: raw?.version ?? 0,
+    templateId: raw?.templateId ?? raw?.template_id ?? null,
+    isArchived: raw?.isArchived ?? raw?.is_archived ?? false,
+    createdBy: raw?.createdBy ?? raw?.created_by ?? null,
+    projectId: raw?.projectId ?? raw?.project_id ?? null,
+    createdAt: raw?.createdAt ?? raw?.created_at,
+    updatedAt: raw?.updatedAt ?? raw?.updated_at,
   } as DocumentEntity;
 }
 
-/* ============ STORE PARA EL DOCUMENTO ABIERTO (Editor) ============ */
+/* ================= STORE DEL EDITOR (compatible con el código actual) ================= */
 
 type State = {
   doc?: DocumentEntity;
@@ -28,26 +29,26 @@ type State = {
 };
 
 type Actions = {
-  /** Inicializa un getter para axios (como no podemos usar hooks dentro del store) */
+  /** Inyecta un getter de axios (no se pueden usar hooks dentro del store) */
   setApiReady: (fn: () => ReturnType<typeof useApi>) => void;
 
-  /** Carga un documento por id */
+  /** Carga documento por id */
   load: (id: string) => Promise<void>;
 
-  /** Aplica un patch local (no persiste) */
+  /** Parche local (NO persiste) */
   applyLocalPatch: (patch: Partial<DocumentData>) => void;
 
-  /** Guarda contra el backend (lock optimista) */
+  /** Guarda con lock optimista */
   save: () => Promise<void>;
 
   /** Reemplaza el doc completo (útil tras crear) */
   setDoc: (doc?: DocumentEntity) => void;
 
-  /** Limpia errores */
+  /** Limpia error */
   clearError: () => void;
 };
 
-// truco para inyectar el hook useApi al store
+// guardamos el getter del api para que el store lo use
 let getApi: null | (() => ReturnType<typeof useApi>) = null;
 
 export const useDocumentStore = create<State & Actions>((set, get) => ({
@@ -67,45 +68,45 @@ export const useDocumentStore = create<State & Actions>((set, get) => ({
       const { data } = await api.get(`/documents/${id}`);
       set({ doc: normalizeDoc(data), loading: false });
     } catch (e: any) {
-      set({ error: e?.message ?? "Error al cargar", loading: false });
+      set({ error: e?.message ?? "Error al cargar documento", loading: false });
     }
   },
 
   applyLocalPatch(patch) {
-    const doc = get().doc;
-    if (!doc) return;
-    const next: DocumentEntity = {
-      ...doc,
-      data: { ...doc.data, ...patch },
-    };
-    set({ doc: next });
+    const cur = get().doc;
+    if (!cur) return;
+    set({
+      doc: {
+        ...cur,
+        data: { ...(cur.data ?? {}), ...(patch ?? {}) },
+      },
+    });
   },
 
   async save() {
     if (!getApi) throw new Error("API no inicializada");
-    const doc = get().doc;
-    if (!doc) return;
-
+    const cur = get().doc;
+    if (!cur) return;
     try {
       const api = getApi();
-      const { data } = await api.patch(`/documents/${doc.id}`, {
-        version: doc.version, // lock optimista
-        data: doc.data,
-        title: doc.title, // opcional
+      const { data } = await api.patch(`/documents/${cur.id}`, {
+        version: cur.version, // lock optimista
+        data: cur.data,
+        title: cur.title, // opcional
       });
       set({ doc: normalizeDoc(data), error: undefined });
     } catch (e: any) {
-      const status = e?.response?.status;
-      if (status === 409 || status === 412) {
-        // conflicto: recarga desde servidor
+      const s = e?.response?.status;
+      if (s === 409 || s === 412) {
+        // conflicto → rehidratar del server
         const api = getApi();
-        const { data } = await api.get(`/documents/${doc.id}`);
+        const { data } = await api.get(`/documents/${cur.id}`);
         set({
           doc: normalizeDoc(data),
-          error: "Conflicto de versión, se recargó el documento",
+          error: "Conflicto de versión: se recargó el documento",
         });
       } else {
-        set({ error: e?.message ?? "Error al guardar" });
+        set({ error: e?.message ?? "Error al guardar documento" });
       }
     }
   },
@@ -119,7 +120,7 @@ export const useDocumentStore = create<State & Actions>((set, get) => ({
   },
 }));
 
-/* ============ HELPERS DE API (operaciones no ligadas al editor) ============ */
+/* ================= Helpers de API externos al editor (SIN cambiar firmas) ================= */
 
 export function useDocumentsApi() {
   const api = useApi();
@@ -132,7 +133,7 @@ export function useDocumentsApi() {
 
     async listByProject(projectId: string): Promise<DocumentEntity[]> {
       const { data } = await api.get(`/documents`, { params: { projectId } });
-      return (data as any[]).map(normalizeDoc);
+      return (Array.isArray(data) ? data : data?.items ?? []).map(normalizeDoc);
     },
 
     async createBlank(opts: {
@@ -148,7 +149,6 @@ export function useDocumentsApi() {
       return normalizeDoc(data);
     },
 
-    // Si en algún momento agregas un endpoint clone-from-template
     async createFromTemplate(opts: {
       templateId: string;
       projectId: string;
@@ -157,9 +157,7 @@ export function useDocumentsApi() {
       const { data } = await api.post(
         `/documents/${opts.templateId}/clone`,
         null,
-        {
-          params: { projectId: opts.projectId, title: opts.title },
-        }
+        { params: { projectId: opts.projectId, title: opts.title } }
       );
       return normalizeDoc(data);
     },

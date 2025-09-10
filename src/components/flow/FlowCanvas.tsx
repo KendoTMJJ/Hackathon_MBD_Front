@@ -68,9 +68,10 @@ import CanvasHelpButtons from "./CanvasHelpButtons";
 import { captureFlowAsPng } from "../gap/captureCanvas";
 
 // Colab + Presencia
-import { useCollabAdapter } from "../../hooks/useCollabAdapter";
+//import { useCollabAdapter } from "../../hooks/useCollabAdapter";
 import PresenceChips from "../collab/PresenceChips";
 import CursorLayer from "../collab/CursorLayer";
+import { useWebSocket } from "../../context/WebSocketContext";
 
 const initialNodes: Node[] = [];
 const initialEdges: Edge[] = [];
@@ -96,7 +97,6 @@ export default function FlowCanvas({
   mode = "full",
   initialPermission = "edit",
   sharedToken,
-  sharedPassword,
   documentIdOverride,
 }: FlowCanvasProps) {
   const nav = useNavigate();
@@ -148,53 +148,72 @@ export default function FlowCanvas({
 
   const { isAuthenticated, loginWithRedirect } = useAuth0();
 
+  const isShared = Boolean(mode === "shared" && sharedToken && documentId);
+
   // Hooks de API
-  const api = useApi();
+  const api = useApi({ isShared, sharedToken });
   const documentsApi = useDocumentsApi();
-  const templatesApi = useTemplates();
-  const projectsApi = useProject();
+  const templatesApi = useTemplates({ api, isShared, sharedToken });
+  const projectsApi = useProject({ api, isShared, sharedToken });
 
   // Store
   const { doc, load, save, applyLocalPatch, setApiReady, setDoc } =
     useDocumentStore();
 
   // ---- ADAPTADOR DE COLAB ----
-  const isShared = Boolean(mode === "shared" && sharedToken && documentId);
+  const ws = useWebSocket();
 
   // Leemos el adapter y, para compatibilidad, sacamos opcionalmente
   // sendSheetChange / onRemoteSheetChange si existen.
-  const collab = useCollabAdapter(documentId, {
-    mode: isShared ? "shared" : "normal",
-    sharedToken,
-    password: sharedPassword,
-  });
+  // const collab = useCollabAdapter(documentId, {
+  //   mode: isShared ? "shared" : "normal",
+  //   sharedToken,
+  //   password: sharedPassword,
+  // });
 
-  const { snapshot, permission, sendChange, sendPresence, peers, connected } =
-    collab;
+  // const { snapshot, permission, sendChange, sendPresence, peers, connected } =
+  //   collab;
 
   // Opcionales (por si tu adapter ya las implementa)
-  type SheetMsg = { sheetId?: string; nodes?: Node[]; edges?: Edge[] };
-  const sendSheetChange:
-    | ((sheetId: string, nodes: Node[], edges: Edge[]) => void)
-    | undefined = (collab as any).sendSheetChange;
-  const onRemoteSheetChange:
-    | ((cb: (msg: SheetMsg) => void) => () => void)
-    | undefined = (collab as any).onRemoteSheetChange;
+  //type SheetMsg = { sheetId?: string; nodes?: Node[]; edges?: Edge[] };
+  // const sendSheetChange:
+  //   | ((sheetId: string, nodes: Node[], edges: Edge[]) => void)
+  //   | undefined = (collab as any).sendSheetChange;
+  // const onRemoteSheetChange:
+  //   | ((cb: (msg: SheetMsg) => void) => () => void)
+  //   | undefined = (collab as any).onRemoteSheetChange;
 
-  const effectivePermission = (permission ?? initialPermission) as
-    | "read"
-    | "edit";
+  const effectivePermission = (initialPermission ?? "edit") as "read" | "edit";
   const readOnly = Boolean(isShared && effectivePermission === "read");
+
+  const broadcastPatch = useCallback(
+    (patch: Partial<{ nodes: Node[]; edges: Edge[] }>, sheetId?: string) => {
+      if (!isShared || !documentId) return;
+      if (sheetId) {
+        ws.sendChange({ type: "sheet_update", data: { ...patch }, sheetId });
+      } else if (patch.nodes) {
+        ws.sendChange({ type: "nodes", data: patch.nodes });
+      } else if (patch.edges) {
+        ws.sendChange({ type: "edges", data: patch.edges });
+      }
+    },
+    [isShared, documentId, ws]
+  );
 
   // Inyecta axios real al store
   useEffect(() => {
     setApiReady(() => api);
   }, [api, setApiReady]);
 
+  useEffect(() => {
+    if (!isShared || !documentId) return;
+    ws.joinDocument(documentId, sharedToken);
+    return () => ws.leaveDocument();
+  }, [isShared, documentId, sharedToken]);
+
   // Carga por API sólo en modo editor normal
   useEffect(() => {
     if (!documentId) return;
-    if (mode === "shared") return;
     load(documentId);
   }, [documentId, load, mode]);
 
@@ -206,39 +225,6 @@ export default function FlowCanvas({
   }, [doc?.version]);
 
   // aplicar snapshot de socket si llega con versión > a la aplicada
-  useEffect(() => {
-    if (!documentId || !snapshot) return;
-    const incomingVersion = snapshot.version ?? 0;
-    if (incomingVersion <= lastAppliedVersionRef.current) return;
-
-    const current = useDocumentStore.getState().doc;
-    const nextData = snapshot.data ?? { nodes: [], edges: [] };
-
-    if (current) {
-      setDoc({
-        ...current,
-        data: nextData,
-        version: incomingVersion,
-      });
-    } else {
-      setDoc({
-        id: documentId,
-        title: "",
-        kind: "diagram",
-        data: nextData,
-        version: incomingVersion,
-        templateId: null,
-        isArchived: false,
-        createdBy: "",
-        projectId: "",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        sheets: [],
-      } as any);
-    }
-
-    lastAppliedVersionRef.current = incomingVersion;
-  }, [documentId, snapshot?.version, snapshot?.data, setDoc]);
 
   useEffect(() => {
     if (!documentId) return;
@@ -254,13 +240,13 @@ export default function FlowCanvas({
     }
   }, [documentId, doc?.version]);
 
-  const storeNodes = useMemo<Node[]>(
+  const storeNodes = useMemo(
     () => (doc?.data?.nodes as Node[]) ?? [],
-    [doc]
+    [doc?.data?.nodes]
   );
-  const storeEdges = useMemo<Edge[]>(
+  const storeEdges = useMemo(
     () => (doc?.data?.edges as Edge[]) ?? [],
-    [doc]
+    [doc?.data?.edges]
   );
   const [draftNodes, setDraftNodes] = useState<Node[]>([]);
   const [draftEdges, setDraftEdges] = useState<Edge[]>([]);
@@ -422,12 +408,11 @@ export default function FlowCanvas({
   const debouncedSave = useDebouncedCallback(() => {
     if (documentId) save();
   }, 1000);
-
   // === Hoja: persistencia + broadcast ===
   const persistSheet = useDebouncedCallback(
     async (nodes: Node[], edges: Edge[]) => {
       if (!activeSheet?.id) return;
-      if (readOnly) return; // invitados con permiso "read" no guardan
+      if (readOnly) return;
 
       // cache local
       setSheets((prev) => ({
@@ -435,12 +420,10 @@ export default function FlowCanvas({
         [activeSheet.id]: { nodes, edges },
       }));
 
-      // broadcast opcional por socket
-      try {
-        sendSheetChange?.(activeSheet.id, nodes, edges);
-      } catch {}
+      // 🔄 broadcast por socket (nuevo)
+      broadcastPatch({ nodes, edges }, activeSheet.id);
 
-      // guarda en API
+      // guarda en API (tu lógica actual)
       try {
         if (isShared && sharedToken && documentId) {
           await update(
@@ -458,58 +441,59 @@ export default function FlowCanvas({
     800
   );
 
-  // === Hoja: suscripción a cambios remotos (OPCIONAL: si el adapter lo soporta) ===
-  useEffect(() => {
-    if (!onRemoteSheetChange) return;
+  // helpers para normalizar tipos legacy que vienen del server/BD
+  function normalizeNodes(nodes: Node[]): Node[] {
+    return (nodes ?? []).map((n) =>
+      n.type === "cloud" ? { ...n, type: "zone" } : n
+    );
+  }
+  function normalizeEdges(edges: Edge[]): Edge[] {
+    return (edges ?? []).map((e) =>
+      e.type === "secure" ? { ...e, type: "colorEdge" } : e
+    );
+  }
 
-    type SheetMsg = { sheetId?: string; nodes?: Node[]; edges?: Edge[] };
+useEffect(() => {
+  if (!isShared) return;
 
-    const off = onRemoteSheetChange((msg: SheetMsg) => {
-      const { sheetId, nodes, edges } = msg || {};
-      if (!sheetId) return;
+  const off = ws.onDocumentChange((ch) => {
+    // 1) SHEETS
+    if (ch.type === "sheet_update" && ch.sheetId) {
+      const nn = normalizeNodes(ch.data?.nodes || []);
+      const ee = normalizeEdges(ch.data?.edges || []);
 
-      // 1) Actualiza la caché local de la hoja
-      setSheets((prev) => ({
-        ...prev,
-        [sheetId]: {
-          nodes: (nodes as Node[]) ?? [],
-          edges: (edges as Edge[]) ?? [],
-        },
-      }));
+      setSheets((prev) => ({ ...prev, [ch.sheetId!]: { nodes: nn, edges: ee } }));
 
-      const currentActive = activeSheetIdRef.current;
-
-      // 2) Si NO hay hoja activa aún, adopta la primera que reciba eventos
-      if (!currentActive) {
-        // Fijamos activeSheet con lo mínimo necesario
-        setActiveSheet({
-          id: sheetId,
-          name: "Hoja",
-          data: {
-            nodes: (nodes as Node[]) ?? [],
-            edges: (edges as Edge[]) ?? [],
-          },
-        } as any);
-
-        activeSheetIdRef.current = sheetId; // mantén el ref sincronizado
-        setSheetNodes(((nodes as Node[]) ?? []).slice());
-        setSheetEdges(((edges as Edge[]) ?? []).slice());
-        return;
+      if (activeSheetIdRef.current === ch.sheetId) {
+        setSheetNodes(nn.slice());
+        setSheetEdges(ee.slice());
       }
+      return;
+    }
 
-      // 3) Si la hoja activa es la del evento, aplica en vivo
-      if (currentActive === sheetId) {
-        setSheetNodes(((nodes as Node[]) ?? []).slice());
-        setSheetEdges(((edges as Edge[]) ?? []).slice());
-      }
-    });
+    // 2) DOCUMENTO (sin sheets): parcha el store **y** refresca lo que ve React Flow
+    if (ch.type === "nodes") {
+      const nn = normalizeNodes(ch.data ?? []);
+      const cur = useDocumentStore.getState().doc;
+      if (cur) applyLocalPatch({ nodes: nn });
+      // 👇 Usa los mismos estados que ya consume el canvas
+      setSheetNodes(nn.slice());
+      return;
+    }
 
-    return () => {
-      try {
-        off?.();
-      } catch {}
-    };
-  }, [onRemoteSheetChange]);
+    if (ch.type === "edges") {
+      const ee = normalizeEdges(ch.data ?? []);
+      const cur = useDocumentStore.getState().doc;
+      if (cur) applyLocalPatch({ edges: ee });
+      // 👇 Usa los mismos estados que ya consume el canvas
+      setSheetEdges(ee.slice());
+      return;
+    }
+  });
+
+  return () => { try { off(); } catch {} };
+}, [isShared, ws, applyLocalPatch, setSheets, setSheetNodes, setSheetEdges]);
+
 
   const onNodesChange: OnNodesChange = useCallback(
     (changes) => {
@@ -529,7 +513,7 @@ export default function FlowCanvas({
         const nextNodes = applyNodeChanges(changes, currentNodes);
         const patch = { nodes: nextNodes };
         applyLocalPatch(patch);
-        sendChange(patch);
+        broadcastPatch(patch);
         debouncedSave();
       } else {
         setDraftNodes((nds) => applyNodeChanges(changes, nds));
@@ -539,7 +523,6 @@ export default function FlowCanvas({
       documentId,
       readOnly,
       applyLocalPatch,
-      sendChange,
       activeSheet,
       sheetEdges,
       persistSheet,
@@ -566,7 +549,7 @@ export default function FlowCanvas({
         const nextEdges = applyEdgeChanges(changes, currentEdges);
         const patch = { edges: nextEdges };
         applyLocalPatch(patch);
-        sendChange(patch);
+        broadcastPatch(patch);
         debouncedSave();
       } else {
         setDraftEdges((eds) => applyEdgeChanges(changes, eds));
@@ -576,7 +559,6 @@ export default function FlowCanvas({
       documentId,
       readOnly,
       applyLocalPatch,
-      sendChange,
       activeSheet,
       sheetNodes,
       persistSheet,
@@ -618,7 +600,7 @@ export default function FlowCanvas({
         if (readOnly) return;
         const patch = { nodes: s.nodes, edges: s.edges };
         applyLocalPatch(patch);
-        sendChange(patch);
+        broadcastPatch(patch);
         debouncedSave();
       } else {
         setDraftNodes(s.nodes);
@@ -630,7 +612,6 @@ export default function FlowCanvas({
       documentId,
       readOnly,
       applyLocalPatch,
-      sendChange,
       debouncedSave,
       persistSheet,
     ]
@@ -728,7 +709,7 @@ export default function FlowCanvas({
         const nextEdges = currentEdges.map(mapEdge);
         const patch = { edges: nextEdges };
         applyLocalPatch(patch);
-        sendChange(patch);
+        broadcastPatch(patch);
         debouncedSave();
       } else {
         setDraftEdges((eds) => eds.map(mapEdge));
@@ -742,7 +723,6 @@ export default function FlowCanvas({
       sheetNodes,
       persistSheet,
       applyLocalPatch,
-      sendChange,
       debouncedSave,
       pushHistory,
     ]
@@ -773,7 +753,7 @@ export default function FlowCanvas({
         const nextEdges = addEdge(payload, currentEdges);
         const patch = { edges: nextEdges };
         applyLocalPatch(patch);
-        sendChange(patch);
+        broadcastPatch(patch);
         debouncedSave();
       } else {
         setDraftEdges((eds) => addEdge(payload, eds));
@@ -786,7 +766,6 @@ export default function FlowCanvas({
       sheetNodes,
       persistSheet,
       applyLocalPatch,
-      sendChange,
       edgePreset,
       debouncedSave,
       pushHistory,
@@ -1066,7 +1045,7 @@ export default function FlowCanvas({
               );
               const patch = { nodes: nextNodes };
               applyLocalPatch(patch);
-              sendChange(patch);
+              broadcastPatch(patch);
               debouncedSave();
             } else {
               setDraftNodes((nds) =>
@@ -1089,7 +1068,6 @@ export default function FlowCanvas({
       documentId,
       readOnly,
       applyLocalPatch,
-      sendChange,
       persistSheet,
       debouncedSave,
     ]
@@ -1130,7 +1108,7 @@ export default function FlowCanvas({
         const nextNodes = [...currentNodes, newNode];
         const patch = { nodes: nextNodes };
         applyLocalPatch(patch);
-        sendChange(patch);
+        broadcastPatch(patch);
         debouncedSave();
       } else {
         setDraftNodes((nds) => nds.concat(newNode));
@@ -1144,7 +1122,6 @@ export default function FlowCanvas({
       documentId,
       readOnly,
       applyLocalPatch,
-      sendChange,
       persistSheet,
       getSubZoneTemplateById,
       createZoneNodeFromTemplate,
@@ -1229,7 +1206,7 @@ export default function FlowCanvas({
         const nextNodes = [...currentNodes, newNode];
         const patch = { nodes: nextNodes };
         applyLocalPatch(patch);
-        sendChange(patch);
+        broadcastPatch(patch);
         debouncedSave();
       } else {
         setDraftNodes((nds) => nds.concat(newNode!));
@@ -1244,7 +1221,6 @@ export default function FlowCanvas({
       readOnly,
       draftNodes,
       applyLocalPatch,
-      sendChange,
       persistSheet,
       getSubZoneTemplateById,
       createZoneNodeFromTemplate,
@@ -1313,7 +1289,7 @@ export default function FlowCanvas({
         const currentNodes = (current?.data?.nodes as Node[]) ?? [];
         const patch = { nodes: [...currentNodes, techNode] };
         applyLocalPatch(patch);
-        sendChange(patch);
+        broadcastPatch(patch);
         debouncedSave();
       } else {
         setDraftNodes((nds) => nds.concat(techNode));
@@ -1330,7 +1306,6 @@ export default function FlowCanvas({
       draftNodes,
       persistSheet,
       applyLocalPatch,
-      sendChange,
       debouncedSave,
       pushHistory,
     ]
@@ -1366,7 +1341,7 @@ export default function FlowCanvas({
       const currentNodes = (current?.data?.nodes as Node[]) ?? [];
       const patch = { nodes: [...currentNodes, node] };
       applyLocalPatch(patch);
-      sendChange(patch);
+      broadcastPatch(patch);
       debouncedSave();
     } else {
       setDraftNodes((nds) => nds.concat(node));
@@ -1379,7 +1354,6 @@ export default function FlowCanvas({
     sheetEdges,
     persistSheet,
     applyLocalPatch,
-    sendChange,
     debouncedSave,
     setDraftNodes,
     setSheetNodes,
@@ -1470,7 +1444,7 @@ export default function FlowCanvas({
         const nextEdges = apply(currEdges);
         const patch = { edges: nextEdges };
         applyLocalPatch(patch);
-        sendChange(patch);
+        broadcastPatch(patch);
         debouncedSave();
       } else {
         setDraftEdges((eds) => apply(eds));
@@ -1483,7 +1457,6 @@ export default function FlowCanvas({
       sheetNodes,
       persistSheet,
       applyLocalPatch,
-      sendChange,
       debouncedSave,
       pushHistory,
     ]
@@ -1518,7 +1491,7 @@ export default function FlowCanvas({
         const result = apply(currNodes, currEdges);
         const patch = { nodes: result.nodes, edges: result.edges };
         applyLocalPatch(patch);
-        sendChange(patch);
+        broadcastPatch(patch);
         debouncedSave();
       } else {
         setDraftNodes((nds) => {
@@ -1535,7 +1508,6 @@ export default function FlowCanvas({
       sheetEdges,
       persistSheet,
       applyLocalPatch,
-      sendChange,
       debouncedSave,
       draftEdges,
       pushHistory,
@@ -1557,49 +1529,36 @@ export default function FlowCanvas({
     if (!documentId || !rf) return;
 
     const onMove = (e: MouseEvent) => {
-      const flowPos = rf.screenToFlowPosition({ x: e.clientX, y: e.clientY });
-      sendPresence({ cursor: { x: flowPos.x, y: flowPos.y } });
+      const p = rf.screenToFlowPosition({ x: e.clientX, y: e.clientY });
+      ws.updateCursor(p.x, p.y);
     };
 
     window.addEventListener("mousemove", onMove);
     return () => window.removeEventListener("mousemove", onMove);
-  }, [documentId, sendPresence, rf]);
+  }, [documentId, rf, ws]);
 
-  // Helpers para mostrar presencia
   const remoteCursors = useMemo(() => {
-    const list: {
-      userId: string;
-      x: number;
-      y: number;
-      name: string;
-      color: string;
-    }[] = [];
-    const entries = Object.values(peers || {});
-    for (const p of entries as any[]) {
-      if (!p?.cursor) continue;
-      const userId = p.userSub || "guest";
-      const name =
-        (p.profileName as string) ||
-        (userId.startsWith("guest:") ? "Invitado" : userId.slice(0, 6));
-      const color = colorFromId(userId);
-      list.push({ userId, x: p.cursor.x, y: p.cursor.y, name, color });
-    }
-    return list;
-  }, [peers]);
+    return (ws.users ?? [])
+      .filter((u) => u.cursor)
+      .map((u) => ({
+        userId: u.id,
+        x: u.cursor!.x,
+        y: u.cursor!.y,
+        name: u.name,
+        color: u.color,
+      }));
+  }, [ws.users]);
 
   const presenceUsers = useMemo(() => {
-    const entries = Object.values(peers || {});
-    return (entries as any[]).map((p) => ({
-      id: p.userSub || "guest",
-      name:
-        (p.profileName as string) ||
-        ((p.userSub as string) ? (p.userSub as string).slice(0, 6) : "guest"),
-      color: colorFromId(p.userSub || "guest"),
+    return (ws.users ?? []).map((u) => ({
+      id: u.id,
+      name: u.name,
+      color: u.color,
     }));
-  }, [peers]);
+  }, [ws.users]);
 
   const connStatus: "connected" | "connecting" | "disconnected" | "error" =
-    connected ? "connected" : "connecting";
+    ws.connectionStatus;
 
   return (
     <div className="w-screen h-[100dvh] overflow-hidden bg-slate-50">
@@ -1691,11 +1650,12 @@ export default function FlowCanvas({
                     if (t) setViewport({ x: t.x, y: t.y, zoom: t.zoom });
 
                     // presencia inicial en el centro
+                    // presencia inicial
                     const mid = inst.screenToFlowPosition({
                       x: window.innerWidth / 2,
                       y: window.innerHeight / 2,
                     });
-                    sendPresence({ cursor: { x: mid.x, y: mid.y } });
+                    ws.updateCursor(mid.x, mid.y); // ← en vez de sendPresence(...)
                   } catch {}
                 }}
                 onDrop={onDrop}
@@ -1830,12 +1790,4 @@ export default function FlowCanvas({
       </div>
     </div>
   );
-}
-
-/** Color determinista por usuario (para chips/cursor) */
-function colorFromId(id: string): string {
-  let h = 0;
-  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
-  const hue = h % 360;
-  return `hsl(${hue}, 70%, 45%)`;
 }

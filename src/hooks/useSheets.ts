@@ -6,6 +6,7 @@ import type {
   CreateSheetRequest,
   UpdateSheetRequest,
 } from "../models";
+import type { AxiosInstance } from "axios";
 
 /** Normaliza un Sheet desde camel o snake (defensivo) */
 function normalizeSheet(raw: any): SheetEntity {
@@ -121,8 +122,9 @@ export const useSheetStore = create<State & Actions>((set, get) => ({
 
 /* ================== HELPERS DE API (normal + shared) ================== */
 
-export function useSheets() {
-  const api = useApi();
+export function useSheets(opts?: { api?: AxiosInstance; isShared?: boolean; sharedToken?: string }) {
+  const api = opts?.api ?? useApi({ isShared: opts?.isShared, sharedToken: opts?.sharedToken });
+
 
   /** ----------- Endpoints protegidos (JWT) ----------- */
   async function listByDocument(documentId: string): Promise<SheetEntity[]> {

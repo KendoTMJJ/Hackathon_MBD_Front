@@ -1,3 +1,5 @@
+/*
+
 // src/hooks/useCollabAdapter.ts
 import { useCollab } from "./useCollab";
 import { useCollabGuest } from "./useCollabGuest";
@@ -19,9 +21,6 @@ export interface CollabAdapter {
 }
  
 
-/**
- * Adaptador unificado para colaboración (usuarios autenticados o invitados).
- */
 export function useCollabAdapter(
   documentId: string | undefined,
   opts?: {
@@ -83,3 +82,4 @@ if (documentId && normal) {
     connected: false,
   };
 }
+*/
