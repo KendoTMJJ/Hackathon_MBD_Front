@@ -1,12 +1,10 @@
-// src/App.tsx
 import { Routes, Route, Navigate } from "react-router-dom";
-
-import RequireAuth from "./components/auth/RequireAuth";
 import LandingPage from "./pages/LandingPage/LandingPage";
 import HomePage from "./pages/HomePage";
+import SharedDocumentPage from "./pages/SharedDocumentPage";
+import RequireAuth from "./components/auth/RequireAuth";
 import BoardPage from "./pages/BoardPage";
 import ProfilePage from "./pages/ProfilePage";
-import SharedDocumentPage from "./pages/SharedDocumentPage";
 
 export default function App() {
   return (
