@@ -474,7 +474,7 @@ export function exportGapPdf(
   }
 
   // Detalle por zona
-  ZONES.forEach((zone, zoneIndex) => {
+  ZONES.forEach((zone) => {
     const zoneData = resume.find((r) => r.zone === zone);
     if (!zoneData?.zonePresent) return; // Saltar zonas no presentes
 

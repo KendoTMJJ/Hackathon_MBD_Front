@@ -2,12 +2,6 @@ import {
   ChevronDown,
   ChevronRight,
   Search,
-  Globe,
-  Shield,
-  Database,
-  Cloud as CloudIcon,
-  Cpu,
-  Network,
   GripVertical,
   Plus,
   HelpCircle,
@@ -25,24 +19,6 @@ interface SidebarProps {
   onCreateZone?: (templateId: string) => void;
   className?: string;
 }
-
-const zoneIcon = (id: string) => {
-  switch (id) {
-    case "internet":
-      return Globe;
-    case "dmz":
-      return Shield;
-    case "datacenter":
-      return Database;
-    case "cloud":
-      return CloudIcon;
-    case "ot":
-      return Cpu;
-    case "lan":
-    default:
-      return Network;
-  }
-};
 
 const SUBZONES_BY_ZONE: Record<
   string,

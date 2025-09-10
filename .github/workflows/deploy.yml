@@ -1,0 +1,49 @@
+name: Deploy Frontend to Azure VM
+
+on:
+  push:
+    branches:
+      - development # o la rama que usas para producción
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout código fuente
+        uses: actions/checkout@v4
+
+      - name: Instalar dependencias
+        run: |
+          npm install
+          npm install vite --save-dev
+
+      - name: Construir frontend
+        run: npm run build
+
+      - name: Limpiar carpeta en la VM
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.AZURE_VM_IP }}
+          username: ${{ secrets.AZURE_VM_USER }}
+          key: ${{ secrets.AZURE_SSH_KEY }}
+          script: |
+            sudo rm -rf /var/www/frontProyecto/*
+
+      - name: Subir archivos al servidor (Azure VM)
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.AZURE_VM_IP }}
+          username: ${{ secrets.AZURE_VM_USER }}
+          key: ${{ secrets.AZURE_SSH_KEY }}
+          source: "dist/"
+          target: "/var/www/frontProyecto/"
+
+      - name: Reiniciar Nginx
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.AZURE_VM_IP }}
+          username: ${{ secrets.AZURE_VM_USER }}
+          key: ${{ secrets.AZURE_SSH_KEY }}
+          script: |
+            sudo systemctl restart nginx
