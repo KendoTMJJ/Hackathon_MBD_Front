@@ -509,7 +509,7 @@ export default function LandingPage() {
       <header className="hero">
         <div className="wrap grid hero grid">
           <div>
-            <h1>BLACK HAT ARCHETYPE V2</h1>
+            <h1>BLACK HAT ARCHETYPE</h1>
             <div className="actions">
               <Link to="/home" className="btn">
                 EMPIEZA AHORA
