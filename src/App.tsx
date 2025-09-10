@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from "react-router-dom";
-import LandingPage from "./pages/LandingPage/LandingPage";
+
 import HomePage from "./pages/HomePage";
+import LandingPage from "./pages/LandingPage/LandingPage";
 import SharedDocumentPage from "./pages/SharedDocumentPage";
 import RequireAuth from "./components/auth/RequireAuth";
 import BoardPage from "./pages/BoardPage";
