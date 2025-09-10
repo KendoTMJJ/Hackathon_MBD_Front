@@ -144,7 +144,9 @@ export default function DocumentCard({
         <div className="flex items-center text-sm text-[#7F8C8D] mb-4">
           <Clock size={14} className="mr-1.5" />
           <span className="mr-4">
-            {doc.updatedAt ? formatDate(doc.updatedAt) : formatDate(doc.createdAt)}
+            {doc.updatedAt
+              ? formatDate(doc.updatedAt)
+              : formatDate(doc.createdAt)}
           </span>
           <FileText size={14} className="mr-1.5" />
           <span>

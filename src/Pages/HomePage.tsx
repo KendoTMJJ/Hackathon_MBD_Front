@@ -10,8 +10,12 @@ import DocumentCard from "../components/templates/DocumentCard";
 import NameModal from "../components/templates/NameModal";
 import { useApi } from "../hooks/useApi";
 import type { DocumentEntity, Project, TemplateEntity } from "../models";
-import { SAMPLE_TEMPLATE_DATA, SAMPLE_TEMPLATE_TITLE } from "../features/templates/sample";
+import {
+  SAMPLE_TEMPLATE_DATA,
+  SAMPLE_TEMPLATE_TITLE,
+} from "../features/templates/sample";
 import { FolderOpen, PencilLine } from "lucide-react";
+import { useCan } from "../components/auth/acl";
 
 function defaultTitle(kind: "diagram" | "template") {
   const d = new Date();
@@ -34,6 +38,7 @@ export default function HomePage() {
   const { t } = useTranslation();
   const api = useApi();
   const navigate = useNavigate();
+  const canCreate = useCan("template:create");
 
   // Estados
   const [loadingTpls, setLoadingTpls] = useState(true);
@@ -79,7 +84,8 @@ export default function HomePage() {
       setTemplates(data);
     } catch (e: any) {
       setErrTpls(
-        e?.message ?? t("home.loadError", { defaultValue: "Error cargando plantillas" })
+        e?.message ??
+          t("home.loadError", { defaultValue: "Error cargando plantillas" })
       );
     } finally {
       setLoadingTpls(false);
@@ -97,7 +103,8 @@ export default function HomePage() {
       setDocuments(data);
     } catch (e: any) {
       setErrDocs(
-        e?.message ?? t("home.loadError", { defaultValue: "Error cargando documentos" })
+        e?.message ??
+          t("home.loadError", { defaultValue: "Error cargando documentos" })
       );
     } finally {
       setLoadingDocs(false);
@@ -183,6 +190,12 @@ export default function HomePage() {
     setDocuments((prev) => prev.filter((d) => d.id !== id));
   };
 
+  const handleTemplateDeleted = (id: string) => {
+    setTemplates((prev) =>
+      prev.filter((t) => String(t.id ?? (t as any).cod_template) !== String(id))
+    );
+  };
+
   // Render por vista (desde Sidebar)
   return (
     <div className="flex h-screen w-full flex-col bg-gradient-to-br from-blue-50 to-gray-50 text-gray-800">
@@ -228,70 +241,72 @@ export default function HomePage() {
                 </section>
 
                 <section className="mb-8">
-  <h2 className="text-2xl font-bold mb-5 text-[#2C3E50]">
-    Servicios de seguridad
-  </h2>
-  <div className="flex flex-wrap gap-4">
-    {(
-      [
-        "diagnostico",
-        "prueba-penetracion", 
-        "ponderacion",
-        "analisis-forense",
-      ] as const
-    ).map((key) => {
-      const sectionConfig = {
-        diagnostico: { 
-          image: "images/DiagnosticoSeguridad.png", 
-          text: "Diagnóstico de Seguridad",
-          description: "Con este diagnóstico, se hace una exploración en el sistema y se identifican las diferentes vulnerabilidades este puede llegar a tener, una vez el estudio concluye brindamos las herramientas más efectivas del mercado para ponerle fin a las deficiencias de seguridad que tenga tu compañía."
-        },
-        "prueba-penetracion": { 
-          image: "images/PruebaPenetracion.png", 
-          text: "Prueba de Penetración",
-          description: "Esta prueba pretende verificar qué tan difícil es acceder a los servidores de la compañía, a través de un ataque directo a la infraestructura del servidor o la red desde un punto externo o interno que intentará realizar cambios, denegaciones o extracciones de información."
-        },
-        ponderacion: { 
-          image: "images/PonderacionSeguridad.png", 
-          text: "Ponderación de Seguridad", 
-          description: "La ponderación permite saber si las medidas de control implementadas en la RED (Firewall, WAF, ADC, Antivirus, etc.) están actuando de forma coordinada y correcta frente a posibles amenazas externas, de esta forma podemos saber cuantitativamente el nivel de seguridad de la infraestructura."
-        },
-        "analisis-forense": { 
-          image: "images/AnalisisForense.png", 
-          text: "Análisis Forense",
-          description: "El análisis forense es el proceso de investigación y recopilación de evidencia digital tras un evento de seguridad, como un ciberataque, acceso no autorizado o fraude. Su objetivo es identificar qué ocurrió, como sucedió y quién estuvo involucrado, utilizando tecnologías y técnicas avanzadas."
-        }
-      };
+                  <h2 className="text-2xl font-bold mb-5 text-[#2C3E50]">
+                    Servicios de seguridad
+                  </h2>
+                  <div className="flex flex-wrap gap-4">
+                    {(
+                      [
+                        "diagnostico",
+                        "prueba-penetracion",
+                        "ponderacion",
+                        "analisis-forense",
+                      ] as const
+                    ).map((key) => {
+                      const sectionConfig = {
+                        diagnostico: {
+                          image: "images/DiagnosticoSeguridad.png",
+                          text: "Diagnóstico de Seguridad",
+                          description:
+                            "Con este diagnóstico, se hace una exploración en el sistema y se identifican las diferentes vulnerabilidades este puede llegar a tener, una vez el estudio concluye brindamos las herramientas más efectivas del mercado para ponerle fin a las deficiencias de seguridad que tenga tu compañía.",
+                        },
+                        "prueba-penetracion": {
+                          image: "images/PruebaPenetracion.png",
+                          text: "Prueba de Penetración",
+                          description:
+                            "Esta prueba pretende verificar qué tan difícil es acceder a los servidores de la compañía, a través de un ataque directo a la infraestructura del servidor o la red desde un punto externo o interno que intentará realizar cambios, denegaciones o extracciones de información.",
+                        },
+                        ponderacion: {
+                          image: "images/PonderacionSeguridad.png",
+                          text: "Ponderación de Seguridad",
+                          description:
+                            "La ponderación permite saber si las medidas de control implementadas en la RED (Firewall, WAF, ADC, Antivirus, etc.) están actuando de forma coordinada y correcta frente a posibles amenazas externas, de esta forma podemos saber cuantitativamente el nivel de seguridad de la infraestructura.",
+                        },
+                        "analisis-forense": {
+                          image: "images/AnalisisForense.png",
+                          text: "Análisis Forense",
+                          description:
+                            "El análisis forense es el proceso de investigación y recopilación de evidencia digital tras un evento de seguridad, como un ciberataque, acceso no autorizado o fraude. Su objetivo es identificar qué ocurrió, como sucedió y quién estuvo involucrado, utilizando tecnologías y técnicas avanzadas.",
+                        },
+                      };
 
-      return (
-        <div
-          key={key}
-          className="flex-1 min-w-[250px] rounded-xl border border-[#3498DB]/20 bg-white p-4 text-[#7F8C8D] hover:border-[#3498DB] hover:shadow-lg transition-all cursor-pointer hover:-translate-y-1"
-        >
-          <div className="flex flex-col items-center text-center">
-            <div className="mb-3">
-              <img 
-                src={sectionConfig[key].image} 
-                alt={sectionConfig[key].text} 
-                className="w-23 h-20 rounded-lg" 
-              />
-            </div>
-            <div className="flex-1">
-              <span className="text-sm font-medium block mb-2 text-[#2C3E50]">
-                {sectionConfig[key].text}
-              </span>
-              <p className="text-xs text-[#7F8C8D] leading-relaxed">
-                {sectionConfig[key].description}
-              </p>
-            </div>
-          </div>
-        </div>
-      );
-    })}
-  </div>
-</section>
-
-                
+                      return (
+                        <div
+                          key={key}
+                          className="flex-1 min-w-[250px] rounded-xl border border-[#3498DB]/20 bg-white p-4 text-[#7F8C8D] hover:border-[#3498DB] hover:shadow-lg transition-all cursor-pointer hover:-translate-y-1"
+                        >
+                          <div className="flex flex-col items-center text-center">
+                            <div className="mb-3">
+                              <img
+                                src={sectionConfig[key].image}
+                                alt={sectionConfig[key].text}
+                                className="w-23 h-20 rounded-lg"
+                              />
+                            </div>
+                            <div className="flex-1">
+                              <span className="text-sm font-medium block mb-2 text-[#2C3E50]">
+                                {sectionConfig[key].text}
+                              </span>
+                              <p className="text-xs text-[#7F8C8D] leading-relaxed">
+                                {sectionConfig[key].description}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </section>
               </>
             )}
 
@@ -302,13 +317,16 @@ export default function HomePage() {
                   <h2 className="text-3xl font-bold text-[#2C3E50]">
                     Plantillas
                   </h2>
-                  <button
-                    className="px-5 py-2.5 rounded-xl bg-[#2ECC71] text-white hover:bg-[#27AE60] transition-all shadow-md font-medium flex items-center gap-2"
-                    onClick={handleSeedTemplate}
-                  >
-                    <span>+</span>
-                    Nueva plantilla
-                  </button>
+
+                  {canCreate && (
+                    <button
+                      className="px-5 py-2.5 rounded-xl bg-[#2ECC71] text-white hover:bg-[#27AE60] transition-all shadow-md font-medium flex items-center gap-2"
+                      onClick={handleSeedTemplate}
+                    >
+                      <span>+</span>
+                      Nueva plantilla
+                    </button>
+                  )}
                 </div>
 
                 {loadingTpls && (
@@ -348,6 +366,7 @@ export default function HomePage() {
                         key={tpl.id}
                         tpl={tpl as any}
                         onUse={() => handleUseTemplate(tpl)}
+                        onDeleted={handleTemplateDeleted} // 👈 importante
                       />
                     ))}
                   </section>
@@ -386,7 +405,7 @@ export default function HomePage() {
                 {!loadingDocs && !documents.length && (
                   <div className="bg-[#3498DB]/10 border border-[#3498DB]/20 rounded-2xl p-8 text-center">
                     <div className="text-5xl rounded-lg bg-blue-100 p-3 inline-block">
-                      <FolderOpen className="w-25 h-25"/>
+                      <FolderOpen className="w-25 h-25" />
                     </div>
                     <p className="text-[#2C3E50] mb-5 text-lg">
                       Aún no tienes documentos.
@@ -406,7 +425,9 @@ export default function HomePage() {
                       <DocumentCard
                         key={doc.id}
                         doc={doc as any}
-                        onOpen={(d: DocumentEntity) => navigate(`/Board/${d.id}`)}
+                        onOpen={(d: DocumentEntity) =>
+                          navigate(`/Board/${d.id}`)
+                        }
                         onDeleted={handleCardDeleted}
                       />
                     ))}
