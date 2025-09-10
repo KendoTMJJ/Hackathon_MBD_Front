@@ -13,10 +13,23 @@ jobs:
       - name: Checkout código fuente
         uses: actions/checkout@v4
 
+      - name: Usar Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+
       - name: Instalar dependencias
+        run: npm ci
+
+      - name: Crear .env.production para Vite
         run: |
-          npm install
-          npm install vite --save-dev
+          cat << 'EOF' > .env.production
+          VITE_API_BASE_URL=${{ secrets.VITE_API_BASE_URL }}
+          VITE_AUTH0_DOMAIN=${{ secrets.VITE_AUTH0_DOMAIN }}
+          VITE_AUTH0_CLIENT_ID=${{ secrets.VITE_AUTH0_CLIENT_ID }}
+          VITE_AUTH0_AUDIENCE=${{ secrets.VITE_AUTH0_AUDIENCE }}
+          EOF
 
       - name: Construir frontend
         run: npm run build
@@ -36,7 +49,7 @@ jobs:
           host: ${{ secrets.AZURE_VM_IP }}
           username: ${{ secrets.AZURE_VM_USER }}
           key: ${{ secrets.AZURE_SSH_KEY }}
-          source: "dist/"
+          source: "dist/*"
           target: "/var/www/frontProyecto/"
 
       - name: Reiniciar Nginx
