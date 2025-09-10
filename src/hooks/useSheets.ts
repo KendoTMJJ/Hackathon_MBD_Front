@@ -18,42 +18,25 @@ function normalizeSheet(raw: any): SheetEntity {
     isActive: raw.isActive ?? raw.is_active ?? true,
     createdAt: raw.createdAt ?? raw.created_at,
     updatedAt: raw.updatedAt ?? raw.updated_at,
+    version: raw.version ?? 0, // 👈 importante para colab/concurrencia
   } as SheetEntity;
 }
 
-/* ============ STORE PARA LA HOJA ABIERTA (Editor) ============ */
+/* ================== STORE PARA LA HOJA ABIERTA (Editor) ================== */
 
-type State = {
-  sheet?: SheetEntity;
-  loading: boolean;
-  error?: string;
-};
-
+type State = { sheet?: SheetEntity; loading: boolean; error?: string };
 type Actions = {
-  /** Inyecta un getter para axios (mismo patrón que useDocuments) */
   setApiReady: (fn: () => ReturnType<typeof useApi>) => void;
-
-  /** Carga una hoja por id */
   load: (sheetId: string) => Promise<void>;
-
-  /** Patch local SOLO sobre el contenido de la hoja (data) */
   applyLocalPatch: (patch: Partial<SheetEntity["data"]>) => void;
-
-  /** Guarda contra el backend (sin version explícita en tu modelo) */
   save: () => Promise<void>;
-
-  /** Reemplaza la hoja completa (útil tras crear/recargar) */
   setSheet: (sheet?: SheetEntity) => void;
-
-  /** Helpers opcionales para metacampos */
   setName: (name: string) => void;
   setOrderIndex: (idx: number) => void;
-
-  /** Limpia errores */
   clearError: () => void;
 };
 
-// truco para inyectar el hook useApi al store (igual que en useDocuments)
+// pequeña inyección para usar el mismo axios del resto de la app
 let getApi: null | (() => ReturnType<typeof useApi>) = null;
 
 export const useSheetStore = create<State & Actions>((set, get) => ({
@@ -73,25 +56,25 @@ export const useSheetStore = create<State & Actions>((set, get) => ({
       const { data } = await api.get(`/documents/sheets/${sheetId}`);
       set({ sheet: normalizeSheet(data), loading: false });
     } catch (e: any) {
-      set({ error: e?.message ?? "Error al cargar la hoja", loading: false });
+      set({
+        error: e?.message ?? "Error al cargar la hoja",
+        loading: false,
+      });
     }
   },
 
   applyLocalPatch(patch) {
     const sheet = get().sheet;
     if (!sheet) return;
-    const next: SheetEntity = {
-      ...sheet,
-      data: { ...(sheet.data ?? {}), ...(patch ?? {}) },
-    };
-    set({ sheet: next });
+    set({
+      sheet: { ...sheet, data: { ...(sheet.data ?? {}), ...(patch ?? {}) } },
+    });
   },
 
   async save() {
     if (!getApi) throw new Error("API no inicializada");
     const sheet = get().sheet;
     if (!sheet) return;
-
     try {
       const api = getApi();
       const body: UpdateSheetRequest = {
@@ -102,9 +85,9 @@ export const useSheetStore = create<State & Actions>((set, get) => ({
       const { data } = await api.patch(`/documents/sheets/${sheet.id}`, body);
       set({ sheet: normalizeSheet(data), error: undefined });
     } catch (e: any) {
-      const status = e?.response?.status;
-      if (status === 409 || status === 412) {
-        // si el backend usa lock/ETag por dentro, rehidrata en conflicto
+      const s = e?.response?.status;
+      if (s === 409 || s === 412) {
+        // conflicto → rehídrata
         const api = getApi();
         const { data } = await api.get(`/documents/sheets/${sheet.id}`);
         set({
@@ -122,15 +105,13 @@ export const useSheetStore = create<State & Actions>((set, get) => ({
   },
 
   setName(name) {
-    const sheet = get().sheet;
-    if (!sheet) return;
-    set({ sheet: { ...sheet, name } });
+    const sh = get().sheet;
+    if (sh) set({ sheet: { ...sh, name } });
   },
 
   setOrderIndex(orderIndex) {
-    const sheet = get().sheet;
-    if (!sheet) return;
-    set({ sheet: { ...sheet, orderIndex } });
+    const sh = get().sheet;
+    if (sh) set({ sheet: { ...sh, orderIndex } });
   },
 
   clearError() {
@@ -138,87 +119,152 @@ export const useSheetStore = create<State & Actions>((set, get) => ({
   },
 }));
 
-/* ============ HELPERS DE API (operaciones fuera del editor) ============ */
+/* ================== HELPERS DE API (normal + shared) ================== */
 
 export function useSheets() {
   const api = useApi();
 
-  return {
-    /** Lista hojas por documento (si falla, devuelve []) */
-    async listByDocument(documentId: string): Promise<SheetEntity[]> {
-      try {
-        const { data } = await api.get(`/documents/${documentId}/sheets`);
-        const arr = Array.isArray(data) ? data : data?.items ?? [];
-        return arr.map(normalizeSheet);
-      } catch (e: any) {
-        const s = e?.response?.status;
-        if (s === 204 || s === 404 || s === 500) {
-          console.warn("[useSheets] listByDocument devolvió", s, "→ []");
-          return [];
-        }
-        console.error("[useSheets] listByDocument error:", e);
-        throw e;
-      }
-    },
+  /** ----------- Endpoints protegidos (JWT) ----------- */
+  async function listByDocument(documentId: string): Promise<SheetEntity[]> {
+    try {
+      const { data } = await api.get(`/documents/${documentId}/sheets`);
+      const arr = Array.isArray(data) ? data : data?.items ?? [];
+      return arr.map(normalizeSheet);
+    } catch (e: any) {
+      const s = e?.response?.status;
+      if (s === 204 || s === 404) return [];
+      throw e;
+    }
+  }
 
-    /** 👇 NUEVO: lista hojas cuando se accede con token de share */
-    async listByDocumentShared(
-      documentId: string,
-      sharedToken?: string
-    ): Promise<SheetEntity[]> {
-      // sin token: intenta la ruta normal
-      if (!sharedToken) return await this.listByDocument(documentId);
-
-      // 1) ruta típica bajo /share
+  /** ----------- Endpoints de link compartido (SIN JWT) ----------- */
+  async function listByDocumentShared(
+    documentId: string,
+    token: string
+  ): Promise<SheetEntity[]> {
+    try {
+      // ruta "oficial" del backend (según tu Swagger)
+      const { data } = await api.get(
+        `/shared-links/${token}/documents/${documentId}/sheets`
+      );
+      const arr = Array.isArray(data) ? data : data?.items ?? [];
+      return arr.map(normalizeSheet);
+    } catch (e1: any) {
+      // fallback opcional a la ruta antigua /share/... si existiera
       try {
         const { data } = await api.get(
           `/share/documents/${documentId}/sheets`,
-          { params: { token: sharedToken } }
+          { params: { token } }
         );
         const arr = Array.isArray(data) ? data : data?.items ?? [];
         return arr.map(normalizeSheet);
-      } catch (e1) {
-        // 2) fallback: param en la ruta normal
-        try {
-          const { data } = await api.get(`/documents/${documentId}/sheets`, {
-            params: { sharedToken },
-          });
-          const arr = Array.isArray(data) ? data : data?.items ?? [];
-          return arr.map(normalizeSheet);
-        } catch (e2) {
-          console.error("[useSheets] listByDocumentShared error:", e2);
-          throw e2;
-        }
+      } catch (e2) {
+        throw e1; // conserva el error principal (404 si no existe la oficial)
       }
-    },
+    }
+  }
 
-    async get(sheetId: string): Promise<SheetEntity> {
-      const { data } = await api.get(`/documents/sheets/${sheetId}`);
-      return normalizeSheet(data);
-    },
+  async function create(
+    documentId: string,
+    dto: CreateSheetRequest,
+    opts?: { sharedToken?: string }
+  ): Promise<SheetEntity> {
+    if (opts?.sharedToken) {
+      // shared: POST /shared-links/:token/documents/:documentId/sheets
+      try {
+        const { data } = await api.post(
+          `/shared-links/${opts.sharedToken}/documents/${documentId}/sheets`,
+          dto
+        );
+        return normalizeSheet(data);
+      } catch (e1) {
+        // fallback a /share/documents/:id/sheets?token=...
+        const { data } = await api.post(
+          `/share/documents/${documentId}/sheets`,
+          dto,
+          { params: { token: opts.sharedToken } }
+        );
+        return normalizeSheet(data);
+      }
+    }
+    // normal
+    const { data } = await api.post(`/documents/${documentId}/sheets`, dto);
+    return normalizeSheet(data);
+  }
 
-    async create(
-      documentId: string,
-      dto: CreateSheetRequest
-    ): Promise<SheetEntity> {
-      const { data } = await api.post(`/documents/${documentId}/sheets`, dto);
-      return normalizeSheet(data);
-    },
+  async function update(
+    sheetId: string,
+    dto: UpdateSheetRequest,
+    opts?: { sharedToken?: string; documentId?: string }
+  ): Promise<SheetEntity> {
+    if (opts?.sharedToken && opts?.documentId) {
+      // shared: PATCH /shared-links/:token/documents/:documentId/sheets/:sheetId
+      try {
+        const { data } = await api.patch(
+          `/shared-links/${opts.sharedToken}/documents/${opts.documentId}/sheets/${sheetId}`,
+          dto
+        );
+        return normalizeSheet(data);
+      } catch (e1) {
+        // fallback a /share/...
+        const { data } = await api.patch(
+          `/share/documents/${opts.documentId}/sheets/${sheetId}`,
+          dto,
+          { params: { token: opts.sharedToken } }
+        );
+        return normalizeSheet(data);
+      }
+    }
+    // normal
+    const { data } = await api.patch(`/documents/sheets/${sheetId}`, dto);
+    return normalizeSheet(data);
+  }
 
-    async update(
-      sheetId: string,
-      dto: UpdateSheetRequest
-    ): Promise<SheetEntity> {
-      const { data } = await api.patch(`/documents/sheets/${sheetId}`, dto);
-      return normalizeSheet(data);
-    },
+  async function remove(
+    sheetId: string,
+    opts?: { sharedToken?: string; documentId?: string }
+  ): Promise<void> {
+    if (opts?.sharedToken && opts?.documentId) {
+      // shared: DELETE /shared-links/:token/documents/:documentId/sheets/:sheetId
+      try {
+        await api.delete(
+          `/shared-links/${opts.sharedToken}/documents/${opts.documentId}/sheets/${sheetId}`
+        );
+        return;
+      } catch (e1) {
+        // fallback a /share/...
+        await api.delete(
+          `/share/documents/${opts.documentId}/sheets/${sheetId}`,
+          { params: { token: opts.sharedToken } }
+        );
+        return;
+      }
+    }
+    // normal
+    await api.delete(`/documents/sheets/${sheetId}`);
+  }
 
-    async remove(sheetId: string): Promise<void> {
-      await api.delete(`/documents/sheets/${sheetId}`);
-    },
+  async function reorder(
+    documentId: string,
+    sheetIds: string[],
+    opts?: { sharedToken?: string }
+  ): Promise<void> {
+    if (opts?.sharedToken) {
+      // si quieres soportarlo en modo compartido, crea la ruta en el backend
+      throw new Error("Reordenar aún no está soportado en modo compartido");
+    }
+    await api.post(`/documents/${documentId}/sheets/reorder`, { sheetIds });
+  }
 
-    async reorder(documentId: string, sheetIds: string[]): Promise<void> {
-      await api.post(`/documents/${documentId}/sheets/reorder`, { sheetIds });
-    },
+  return {
+    // protegidos
+    listByDocument,
+    // compartidos
+    listByDocumentShared,
+    // CRUD
+    create,
+    update,
+    remove,
+    reorder,
   };
 }

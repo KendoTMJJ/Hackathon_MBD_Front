@@ -6,7 +6,11 @@ interface Props {
   documentId: string;
   activeSheetId: string | null;
   onSheetChange: (sheet: SheetEntity) => void;
+
+  // === NUEVO ===
   isSharedDocument?: boolean;
+  sharedToken?: string;
+
   canEdit?: boolean;
   sheets?: SheetEntity[];
   onCreateSheet?: (name: string) => Promise<void>;
@@ -19,13 +23,15 @@ export default function SheetTabs({
   documentId,
   activeSheetId,
   onSheetChange,
+  isSharedDocument = false,
+  sharedToken,
   canEdit = true,
   sheets: externalSheets,
   onCreateSheet,
   onDeleteSheet,
   saving = false,
 }: Props) {
-  const { listByDocument, create, update, remove } = useSheets();
+  const { listByDocument, listByDocumentShared, create, update, remove } = useSheets();
   const [internalSheets, setInternalSheets] = useState<SheetEntity[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
@@ -34,35 +40,38 @@ export default function SheetTabs({
 
   useEffect(() => {
     if (externalSheets) return;
+
     (async () => {
       try {
-        const result = await listByDocument(documentId);
+        const result = isSharedDocument && sharedToken
+          ? await listByDocumentShared(documentId, sharedToken)
+          : await listByDocument(documentId);
+
         setInternalSheets(result);
         if (!activeSheetId && result.length) onSheetChange(result[0]);
       } catch (e) {
         console.error("Error cargando hojas:", e);
       }
     })();
-  }, [documentId, externalSheets]);
+  }, [documentId, externalSheets, isSharedDocument, sharedToken]);
 
   const handleSelect = (sheet: SheetEntity) => onSheetChange(sheet);
 
   const handleCreate = async () => {
     if (!canEdit) return;
-
     try {
       if (onCreateSheet) {
         await onCreateSheet(`Hoja ${sheets.length + 1}`);
       } else {
-        const newSheet = await create(documentId, {
-          name: `Hoja ${sheets.length + 1}`,
-          data: { nodes: [], edges: [] }, 
-        });
-        const next = [...internalSheets, newSheet].sort(
-          (a, b) => a.orderIndex - b.orderIndex
+        const newSheet = await create(
+          documentId,
+          { name: `Hoja ${sheets.length + 1}`, data: { nodes: [], edges: [] } },
+          isSharedDocument && sharedToken ? { sharedToken } : undefined
         );
+
+        const next = [...internalSheets, newSheet].sort((a, b) => a.orderIndex - b.orderIndex);
         setInternalSheets(next);
-        onSheetChange(newSheet); 
+        onSheetChange(newSheet);
       }
     } catch (e) {
       console.error("Error creando hoja:", e);
@@ -79,11 +88,14 @@ export default function SheetTabs({
     if (!editingId) return;
     const name = editName.trim() || "Sin título";
     try {
-      const updated = await update(editingId, { name });
+      const updated = await update(
+        editingId,
+        { name },
+        isSharedDocument && sharedToken ? { sharedToken, documentId } : undefined
+      );
+
       if (!externalSheets) {
-        setInternalSheets((prev) =>
-          prev.map((x) => (x.id === updated.id ? updated : x))
-        );
+        setInternalSheets(prev => prev.map(x => (x.id === updated.id ? updated : x)));
       }
       if (activeSheetId === updated.id) onSheetChange(updated);
     } catch (e) {
@@ -97,12 +109,16 @@ export default function SheetTabs({
     if (!canEdit) return;
     if (sheets.length <= 1) return alert("No puedes eliminar la última hoja");
     if (!confirm("¿Eliminar esta hoja?")) return;
+
     try {
       if (onDeleteSheet) {
         await onDeleteSheet(id);
       } else {
-        await remove(id);
-        const next = internalSheets.filter((s) => s.id !== id);
+        await remove(
+          id,
+          isSharedDocument && sharedToken ? { sharedToken, documentId } : undefined
+        );
+        const next = internalSheets.filter(s => s.id !== id);
         setInternalSheets(next);
         if (activeSheetId === id && next.length) onSheetChange(next[0]);
       }
@@ -118,9 +134,7 @@ export default function SheetTabs({
           <div
             key={s.id}
             className={`group flex items-center rounded-md border border-white/10 ${
-              s.id === activeSheetId
-                ? "bg-blue-600 text-white"
-                : "bg-[#171727] text-gray-300"
+              s.id === activeSheetId ? "bg-blue-600 text-white" : "bg-[#171727] text-gray-300"
             }`}
           >
             {editingId === s.id ? (
@@ -140,11 +154,7 @@ export default function SheetTabs({
                 onClick={() => handleSelect(s)}
                 onDoubleClick={() => startEdit(s)}
                 className="px-3 py-2 text-xs"
-                title={
-                  canEdit
-                    ? "Doble click para renombrar"
-                    : s.name || "Sin título"
-                }
+                title={canEdit ? "Doble click para renombrar" : s.name || "Sin título"}
               >
                 {s.name || "Sin título"}
               </button>

@@ -427,6 +427,7 @@ export default function FlowCanvas({
   const persistSheet = useDebouncedCallback(
     async (nodes: Node[], edges: Edge[]) => {
       if (!activeSheet?.id) return;
+      if (readOnly) return; // invitados con permiso "read" no guardan
 
       // cache local
       setSheets((prev) => ({
@@ -434,14 +435,22 @@ export default function FlowCanvas({
         [activeSheet.id]: { nodes, edges },
       }));
 
-      // emite a otros si el adapter lo soporta
+      // broadcast opcional por socket
       try {
         sendSheetChange?.(activeSheet.id, nodes, edges);
       } catch {}
 
       // guarda en API
       try {
-        await update(activeSheet.id, { data: { nodes, edges } });
+        if (isShared && sharedToken && documentId) {
+          await update(
+            activeSheet.id,
+            { data: { nodes, edges } },
+            { sharedToken, documentId }
+          );
+        } else {
+          await update(activeSheet.id, { data: { nodes, edges } });
+        }
       } catch (e) {
         console.error("Error saving sheet:", e);
       }
@@ -1786,8 +1795,11 @@ export default function FlowCanvas({
               {documentId && (
                 <SheetTabs
                   documentId={documentId}
-                  activeSheetId={activeSheet?.id || null}
-                  onSheetChange={(sheet) => setActiveSheet(sheet)}
+                  activeSheetId={activeSheet?.id ?? null}
+                  onSheetChange={setActiveSheet}
+                  isSharedDocument={isShared}
+                  sharedToken={sharedToken}
+                  canEdit={!readOnly} // <- aquí la clave
                 />
               )}
 

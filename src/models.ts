@@ -111,6 +111,7 @@ export interface SheetEntity {
   createdAt: string;
   updatedAt: string;
   documentId: string;
+  version?: number;
 }
 
 export interface CreateSheetRequest {
@@ -122,6 +123,7 @@ export interface UpdateSheetRequest {
   name?: string;
   data?: Record<string, any>;
   orderIndex?: number;
+  version?: number; 
 }
 
 export interface ReorderSheetsRequest {

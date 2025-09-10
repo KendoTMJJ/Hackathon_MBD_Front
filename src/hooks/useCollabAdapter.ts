@@ -1,6 +1,8 @@
 // src/hooks/useCollabAdapter.ts
 import { useCollab } from "./useCollab";
 import { useCollabGuest } from "./useCollabGuest";
+import type { SheetMsg } from "./useCollabGuest";
+
 
 export interface CollabAdapter {
   snapshot: any;
@@ -10,7 +12,12 @@ export interface CollabAdapter {
   peers: Record<string, any>;
   connected: boolean;
   error?: string;
+
+  // canal por hoja
+  sendSheetChange?: (sheetId: string, nodes: any[], edges: any[], baseVersion?: number) => void;
+  onRemoteSheetChange?: (cb: (msg: SheetMsg) => void) => () => void;
 }
+ 
 
 /**
  * Adaptador unificado para colaboración (usuarios autenticados o invitados).
@@ -42,25 +49,29 @@ export function useCollabAdapter(
       sendChange: guest.sendChange,
       sendPresence: guest.sendPresence,
       peers: guest.peers || {},
-      connected: !!guest.connected || !!guest.snapshot,
+      connected: !!guest.connected,
       error: guest.error || undefined,
+      
+      sendSheetChange: guest.sendSheetChange,
+      onRemoteSheetChange: guest.onRemoteSheetChange,
     };
   }
 
-  if (documentId && normal) {
-    return {
-      snapshot: normal.snapshot,
-      permission: (normal.permission ?? undefined) as
-        | "read"
-        | "edit"
-        | undefined,
-      sendChange: normal.sendChange,
-      sendPresence: normal.sendPresence,
-      peers: normal.peers || {},
-      connected: normal.permission != null,
-      error: undefined,
-    };
-  }
+if (documentId && normal) {
+  return {
+    snapshot: normal.snapshot,
+    permission: (normal.permission ?? undefined) as "read" | "edit" | undefined,
+    sendChange: normal.sendChange,
+    sendPresence: normal.sendPresence,
+    peers: normal.peers || {},
+    connected: normal.permission != null,
+    error: undefined,
+
+    // podrían no existir en 'useCollab' aún
+    sendSheetChange: (normal as any)?.sendSheetChange,
+    onRemoteSheetChange: (normal as any)?.onRemoteSheetChange,
+  };
+}
 
   // Sin documento
   return {

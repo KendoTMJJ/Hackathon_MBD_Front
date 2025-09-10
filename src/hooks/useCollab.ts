@@ -72,13 +72,14 @@ export function useCollab(documentId?: string): CollaborationState {
   }>({});
 
   /** Conexión + join */
+  // src/hooks/useCollab.ts
+  // ...
   useEffect(() => {
     if (!documentId) return;
 
     let closed = false;
 
     (async () => {
-      // 1) Access token para tu API (Auth0)
       let jwt = "";
       try {
         jwt = await getAccessTokenSilently({
@@ -87,25 +88,20 @@ export function useCollab(documentId?: string): CollaborationState {
       } catch (e) {
         console.warn("[collab] no se pudo obtener token:", e);
       }
-
-      // 2) conectar socket
+      
       const s = createAuthedSocket(jwt);
       sref.current = s;
 
-      s.on("connect", () => {
+      const onConnect = () => {
         if (closed) return;
-
-        // 3) join con ACK
         s.emit("join", { documentId }, (res: any) => {
           if (closed) return;
           if (!res?.ok) return;
 
-          // Snapshot/permiso del server
           const snap = (res.snapshot || null) as SnapshotState | null;
           setSnapshot(snap);
           setPermission((res.permission as "read" | "edit") || "edit");
 
-          // Hidratar store para que el canvas pinte YA
           const current = getStore().doc;
           if (current) {
             setDoc({
@@ -115,83 +111,72 @@ export function useCollab(documentId?: string): CollaborationState {
             });
           }
 
-          // Presencia inicial
           const p = lastPresence.current || {};
           s.emit("presence", { documentId, ...p, timestamp: Date.now() });
         });
-      });
+      };
 
-      // 4) presencia
-      s.on("presence:joined", (p: Presence) => {
+      const onPresenceJoined = (p: Presence) => {
         setPeers((prev) => ({ ...prev, [p.userSub]: p }));
-      });
-
-      s.on("presence", (p: Presence) => {
+      };
+      const onPresence = (p: Presence) => {
         setPeers((prev) => ({
           ...prev,
           [p.userSub]: { ...(prev[p.userSub] || {}), ...p },
         }));
-      });
-
-      s.on("presence:left", (p: Presence) => {
+      };
+      const onPresenceLeft = (p: Presence) => {
         setPeers((prev) => {
           const next = { ...prev };
           delete next[p.userSub];
           return next;
         });
-      });
+      };
+      const onChange = (msg: { version: number; ops: any; actor: string }) => {
+        const current = getStore().doc;
+        if (!current) return;
+        const next = { ...current, version: msg.version };
+        if (msg.ops?.nodes)
+          next.data = { ...(next.data ?? {}), nodes: msg.ops.nodes };
+        if (msg.ops?.edges)
+          next.data = { ...(next.data ?? {}), edges: msg.ops.edges };
+        if (typeof msg.ops?.title === "string")
+          (next as any).title = msg.ops.title;
+        setDoc(next);
 
-      // 5) cambios remotos → hidratar store y snapshot
-      s.on(
-        "change",
-        (msg: {
-          version: number;
-          ops: any;
-          actor: string;
-          timestamp?: number;
-        }) => {
-          const current = getStore().doc;
-          if (!current) return;
-
-          const next = { ...current, version: msg.version };
-          if (msg.ops?.nodes)
-            next.data = { ...(next.data ?? {}), nodes: msg.ops.nodes };
-          if (msg.ops?.edges)
-            next.data = { ...(next.data ?? {}), edges: msg.ops.edges };
+        setSnapshot((prev) => {
+          const base = prev ?? { data: { nodes: [], edges: [] }, version: 0 };
+          const snext: SnapshotState = {
+            ...base,
+            version: msg.version,
+            data: { ...(base.data ?? {}) },
+          };
+          if (msg.ops?.nodes) (snext.data as any).nodes = msg.ops.nodes;
+          if (msg.ops?.edges) (snext.data as any).edges = msg.ops.edges;
           if (typeof msg.ops?.title === "string")
-            (next as any).title = msg.ops.title;
-
-          setDoc(next);
-
-          // Mantener snapshot coherente
-          setSnapshot((prev: SnapshotState | null): SnapshotState => {
-            const base: SnapshotState = prev ?? {
-              data: { nodes: [], edges: [] },
-              version: 0,
-            };
-            const snext: SnapshotState = {
-              ...base,
-              version: msg.version,
-              data: { ...(base.data ?? {}) },
-            };
-            if (msg.ops?.nodes) (snext.data as any).nodes = msg.ops.nodes;
-            if (msg.ops?.edges) (snext.data as any).edges = msg.ops.edges;
-            if (typeof msg.ops?.title === "string")
-              (snext as any).title = msg.ops.title;
-            return snext;
-          });
-        }
-      );
-
-      // 6) Reintentos de reconexión → refrescar token y ponerlo en auth
-      s.io.on("reconnect_attempt", async () => {
-        const newJwt = await getAccessTokenSilently({
-          authorizationParams: { audience: AUDIENCE },
+            (snext as any).title = msg.ops.title;
+          return snext;
         });
-        setSocketAuth({ token: newJwt }); // <- actualiza el auth del socket
+      };
+
+      s.on("connect", onConnect);
+      s.on("presence:joined", onPresenceJoined);
+      s.on("presence", onPresence);
+      s.on("presence:left", onPresenceLeft);
+      s.on("change", onChange);
+
+      // 🔁 refresh de token antes de reintentar
+      s.io.on("reconnect_attempt", async () => {
+        try {
+          const newJwt = await getAccessTokenSilently({
+            authorizationParams: { audience: AUDIENCE },
+          });
+          setSocketAuth({ token: newJwt }); // <- debe actualizar socket.auth/io.opts.auth
+        } catch (e) {
+          console.warn("[collab] refresh token failed on reconnect_attempt", e);
+        }
       });
 
-      // Re-conectado: reemitir presencia
       s.io.on("reconnect", () => {
         const p = lastPresence.current || {};
         s.emit("presence", { documentId, ...p, timestamp: Date.now() });
@@ -203,7 +188,7 @@ export function useCollab(documentId?: string): CollaborationState {
           const newJwt = await getAccessTokenSilently({
             authorizationParams: { audience: AUDIENCE },
           });
-          (s as any).auth = { ...(s as any).auth, token: newJwt };
+          setSocketAuth({ token: newJwt });
         } catch (err) {
           console.warn("[collab] unable to refresh token on error:", err);
         }
@@ -217,7 +202,11 @@ export function useCollab(documentId?: string): CollaborationState {
     return () => {
       closed = true;
       try {
-        sref.current?.disconnect();
+        const s = sref.current;
+        if (s) {
+          s.removeAllListeners();
+          s.disconnect();
+        }
       } catch {}
       sref.current = null;
       setSnapshot(null);

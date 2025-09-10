@@ -38,14 +38,17 @@ export default function SharedDocumentPage() {
 
       const link = res.data!;
       setDocId(link.documentId ?? null);
-      setPermission(
-        (link.permission ??
-          (link.minRole === "editor" ? "edit" : "read")) as Perm
-      );
+
+      // Prioriza permission, si no viene usa minRole del link ('editor' | 'reader')
+      const perm: Perm =
+        (link.permission as Perm) ??
+        (link.minRole === "editor" ? "edit" : "read");
+      setPermission(perm);
+
       setNeedPw(false);
     } catch (err: any) {
       console.error("Error loading shared link:", err);
-      setError(err.message || "Error al cargar el link compartido");
+      setError(err?.message || "Error al cargar el link compartido");
     } finally {
       setLoading(false);
     }
@@ -56,7 +59,7 @@ export default function SharedDocumentPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
-  // Sincroniza ?id=<docId> (opcional)
+  // Sincroniza ?id=<docId> para que otras partes lo lean si hace falta
   useEffect(() => {
     if (!docId) return;
     const url = new URL(window.location.href);
@@ -70,7 +73,7 @@ export default function SharedDocumentPage() {
     return (
       <div className="w-screen h-[100dvh] flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4" />
           <p className="text-gray-600">Cargando documento compartido...</p>
         </div>
       </div>
@@ -169,7 +172,7 @@ export default function SharedDocumentPage() {
     return (
       <div className="w-screen h-[100dvh] flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4" />
           <p className="text-gray-600">Preparando documento...</p>
         </div>
       </div>
