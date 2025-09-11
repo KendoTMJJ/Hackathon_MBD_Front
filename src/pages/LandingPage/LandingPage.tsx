@@ -160,7 +160,9 @@ function Slide({ title, img, children, fit = "cover" }: SlideProps) {
     <div className="slide">
       <article className="panel panel--hover">
         <div
-          className={`panel__thumb ${fit === "contain" ? "thumb--contain" : ""}`}
+          className={`panel__thumb ${
+            fit === "contain" ? "thumb--contain" : ""
+          }`}
         >
           <img src={img} alt={title} loading="lazy" />
         </div>
@@ -488,7 +490,7 @@ export default function LandingPage() {
       <header className="hero">
         <div className="wrap grid hero grid">
           <div>
-            <h1>BLACK HAT ARCHETYPEE</h1>
+            <h1>BLACK HAT ARCHETYPE</h1>
             <div className="actions">
               <Link to="/home" className="btn">
                 EMPIEZA AHORA
@@ -503,7 +505,8 @@ export default function LandingPage() {
                   loop
                   playsInline
                   onError={(e) => {
-                    (e.currentTarget as HTMLVideoElement).style.display = "none";
+                    (e.currentTarget as HTMLVideoElement).style.display =
+                      "none";
                     const img = document.getElementById("hero-fallback");
                     if (img) img.removeAttribute("data-hidden");
                   }}
@@ -521,7 +524,10 @@ export default function LandingPage() {
           </div>
 
           {/* Logo animado */}
-          <aside className="brandCard no-invert" aria-label="Black Hat Archetype">
+          <aside
+            className="brandCard no-invert"
+            aria-label="Black Hat Archetype"
+          >
             <div className="logoFrame">
               <span className="logoAura" />
               <img className="logoIso" src={LOGO_ISO} alt="BHA isotipo" />
@@ -537,7 +543,11 @@ export default function LandingPage() {
             <h2>Como funciona la aplicación?</h2>
           </div>
           {/* >>> Video integrado <<< */}
-          <div className="video-card no-invert" role="region" aria-label="Demostración en video">
+          <div
+            className="video-card no-invert"
+            role="region"
+            aria-label="Demostración en video"
+          >
             <div className="video-frame">
               <video
                 ref={videoRef}
@@ -553,8 +563,8 @@ export default function LandingPage() {
               </video>
             </div>
             <div className="video-caption">
-              Demostración rápida: crea un documento, usa una plantilla y visualiza tu
-              arquitectura.
+              Demostración rápida: crea un documento, usa una plantilla y
+              visualiza tu arquitectura.
             </div>
           </div>
         </div>
@@ -587,8 +597,8 @@ export default function LandingPage() {
             </Slide>
 
             <Slide title="Plantillas" img={SAMPLE_3} fit="contain">
-              Catálogo de <strong>plantillas reutilizables</strong> con preview y
-              métricas. Úsalas para iniciar más rápido o crea una{" "}
+              Catálogo de <strong>plantillas reutilizables</strong> con preview
+              y métricas. Úsalas para iniciar más rápido o crea una{" "}
               <strong>nueva plantilla</strong> lista para personalizar.
             </Slide>
           </ProfessionalCarousel>
@@ -601,26 +611,69 @@ export default function LandingPage() {
           <div className="fgrid">
             <div>
               <div className="brand">
-                <img className="logo" src={LOGO_FULL} alt="Black Hat Archetype" />
+                <img
+                  className="logo"
+                  src={LOGO_FULL}
+                  alt="Black Hat Archetype"
+                />
                 <div>
                   <strong>BLACK HAT ARCHETYPE</strong>
                 </div>
               </div>
               <div className="social">
                 <a aria-label="Github" className="icon-btn no-invert">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    aria-hidden="true"
+                  >
                     <path d="M12 .5A12 12 0 0 0 0 12.7c0 5.4 3.4 10 8.1 11.6.6.1.8-.3.8-.6v-2c-3.3.8-4-1.6-4-1.6-.5-1.3-1.2-1.6-1.2-1.6-1-.7.1-.7.1-.7 1.1.1 1.6 1.2 1.6 1.2 1 .1.7 2 2.9 1.4.1-.8.4-1.3.7-1.6-2.7-.3-5.5-1.4-5.5-6.2 0-1.4.5-2.5 1.2-3.4-.1-.3-.6-1.7.1-3.5 0 0 1-.3 3.5 1.3a12 12 0 0 1 6.4 0c2.5-1.6 3.5-1.3 3.5-1.3.7 1.8.2 3.2.1 3.5.8.9 1.2 2 1.2 3.4 0 4.8-2.8 5.9-5.6 6.2.4.3.8 1 .8 2.1v3.1c0 .3.2.7.8.6A12.2 12.2 0 0 0 24 12.7 12 12 0 0 0 12 .5z" />
                   </svg>
                 </a>
                 <a aria-label="X" className="icon-btn no-invert">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    aria-hidden="true"
+                  >
                     <path d="M18.244 2H21l-6.57 7.5L22 22h-6.99l-4.35-5.72L5.6 22H3l7.07-8.07L2 2h7.07l4.06 5.44L18.244 2zm-1.02 18h1.9L8.3 4H6.33l10.89 16z" />
                   </svg>
                 </a>
-                <a target="_blank" rel="noreferrer" aria-label="Instagram" className="icon-btn no-invert">
-                  <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
-                    <rect x="2" y="2" width="20" height="20" rx="5" ry="5" fill="none" stroke="currentColor" strokeWidth="2" />
-                    <circle cx="12" cy="12" r="3.5" fill="none" stroke="currentColor" strokeWidth="2" />
+                <a
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label="Instagram"
+                  className="icon-btn no-invert"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="20"
+                    height="20"
+                    aria-hidden="true"
+                  >
+                    <rect
+                      x="2"
+                      y="2"
+                      width="20"
+                      height="20"
+                      rx="5"
+                      ry="5"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    />
+                    <circle
+                      cx="12"
+                      cy="12"
+                      r="3.5"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    />
                     <circle cx="17.5" cy="6.5" r="1.2" fill="currentColor" />
                   </svg>
                 </a>
