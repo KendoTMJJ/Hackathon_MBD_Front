@@ -3,7 +3,7 @@
     "searchPlaceholder": "Buscar plantillas o documentos...",
     "new": "Nuevo",
     "loadSample": "Cargar plantilla de prueba",
-    "blankBoard": "Tablero en blanco"
+    "blankBoard": "Crear diagrama en blanco"
   },
   "sidebar": {
     "home": "Inicio",
@@ -12,32 +12,36 @@
     "personal": "Personal",
     "new": "Nuevo"
   },
-  "home": {
-    "welcome": "Bienvenido",
-    "subtitle": "Crea diagramas claros y colabora en tiempo real."
-  },
-  "sections": {
-    "orgChart": "Dmz",
-    "mindMap": "Lan",
-    "flowchart": "Centro de datos",
-    "conceptMap": "Nube",
-    "ot": "Ot"
-  },
-  "actions": {
-    "connections": "Conexiones",
-    "save": "Guardar",
-    "share": "Compartir",
-    "info": "Información"
-  },
   "lang": { "switch": "Cambiar idioma", "es": "ES", "en": "EN" },
 
+  "home": {
+    "welcome": "Bienvenido",
+    "subtitle": "Crea diagramas claros y colabora en tiempo real.",
+    "servicesTitle": "Servicios de seguridad",
+    "defaultProjectName": "Mis diagramas",
+    "loadError": "Error al cargar datos",
+    "newTemplateBtn": "Nueva plantilla",
+    "createSampleTemplate": "Crear plantilla de ejemplo",
+    "newDocumentBtn": "Nuevo documento",
+    "createFirstDoc": "Crear primer documento",
+    "nameDiagramTitle": "Nombrar diagrama",
+    "nameDiagramPlaceholder": "p. ej., Flujo de ventas Q3",
+    "continue": "Continuar",
+    "cancel": "Cancelar"
+  },
+
   "documents": {
+    "title": "Mis Documentos",
+    "type": "Diagrama",
     "empty": "Aún no tienes documentos.",
-    "type": "Documento",
     "open": "Abrir",
     "delete": "Eliminar",
     "deleting": "Eliminando...",
     "deleteConfirm": "¿Eliminar definitivamente \"{{name}}\"? Esta acción no se puede deshacer.",
+    "nodesLabel": "{{count}} nodo",
+    "nodesLabel_plural": "{{count}} nodos",
+    "connectionsLabel": "{{count}} conexión",
+    "connectionsLabel_plural": "{{count}} conexiones",
     "errors": {
       "forbidden": "No tienes permiso para eliminar este documento.",
       "notFound": "El documento ya no existe.",
@@ -46,9 +50,38 @@
   },
 
   "templates": {
+    "title": "Plantillas",
+    "type": "Plantilla",
     "empty": "No tienes plantillas aún.",
     "hint": "Usa \"Cargar plantilla de prueba\" o crea una desde el editor.",
-    "type": "Plantilla",
-    "use": "Usar plantilla"
+    "use": "Usar plantilla",
+    "names": {
+      "basic_architecture": "Arquitectura Básica"
+    },
+    "deleteConfirm": "¿Eliminar definitivamente \"{{name}}\"? Esta acción no se puede deshacer.",
+    "errors": {
+      "forbidden": "No tienes permiso para eliminar esta plantilla.",
+      "notFound": "La plantilla ya no existe.",
+      "genericDelete": "No se pudo eliminar la plantilla."
+    }
+  },
+
+  "services": {
+    "diagnostico": {
+      "title": "Diagnóstico de Seguridad",
+      "desc": "Con este diagnóstico, se hace una exploración en el sistema y se identifican las diferentes vulnerabilidades; al finalizar, brindamos herramientas efectivas para mitigar las deficiencias de seguridad de tu compañía."
+    },
+    "prueba": {
+      "title": "Prueba de Penetración",
+      "desc": "Verificamos qué tan difícil es acceder a los servidores de la compañía mediante ataques controlados desde puntos internos y externos, evaluando cambios, denegaciones o extracciones de información."
+    },
+    "ponderacion": {
+      "title": "Ponderación de Seguridad",
+      "desc": "Medimos si los controles en la red (Firewall, WAF, ADC, Antivirus, etc.) actúan de forma coordinada ante amenazas y cuantificamos el nivel de seguridad de la infraestructura."
+    },
+    "forense": {
+      "title": "Análisis Forense",
+      "desc": "Investigamos y recopilamos evidencia digital tras un incidente de seguridad para identificar qué ocurrió, cómo y quién estuvo involucrado, utilizando técnicas y tecnologías avanzadas."
+    }
   }
 }

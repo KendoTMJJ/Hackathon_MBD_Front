@@ -18,7 +18,8 @@ export default function DocumentCard({
   onOpen: (doc: DocumentEntity) => void;
   onDeleted?: (id: string) => void;
 }) {
-  const { t } = useTranslation("common", { keyPrefix: "documents" });
+  // usamos "documents" como keyPrefix para labels y también i18n para conocer el idioma
+  const { t, i18n } = useTranslation("common", { keyPrefix: "documents" });
 
   const nodes = useMemo(() => doc?.data?.nodes ?? [], [doc]);
   const edges = useMemo(() => doc?.data?.edges ?? [], [doc]);
@@ -56,9 +57,30 @@ export default function DocumentCard({
     }
   };
 
+  // ---------- Título dinámico por idioma ----------
+  // Detecta si el título fue autogenerado (Diagrama/Diagram/Plantilla/Template + fecha)
+  const autoTitleRegex = /^(Diagrama|Diagram|Plantilla|Template)\s/i;
+  const isAuto = autoTitleRegex.test(doc.title ?? "");
+
+  const lang =
+    i18n.language ||
+    document.documentElement.getAttribute("lang") ||
+    navigator.language ||
+    "es";
+  const when = new Date(doc.updatedAt || doc.createdAt);
+  const formattedWhen = when.toLocaleString(lang, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+
+  // Si es auto, mostramos tipo + fecha localizada; si no, respetamos el título guardado
+  const displayTitle = isAuto
+    ? `${t("type", { ns: "common" })} ${formattedWhen}`
+    : doc.title;
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString(undefined, {
+    return date.toLocaleDateString(lang, {
       year: "numeric",
       month: "short",
       day: "numeric",
@@ -120,7 +142,7 @@ export default function DocumentCard({
       <div className="p-5">
         <div className="flex items-start justify-between mb-3">
           <h3 className="font-semibold text-[#2C3E50] text-base line-clamp-2 leading-tight flex-1 mr-3">
-            {doc.title}
+            {displayTitle}
           </h3>
 
           <button
@@ -144,13 +166,11 @@ export default function DocumentCard({
         <div className="flex items-center text-sm text-[#7F8C8D] mb-4">
           <Clock size={14} className="mr-1.5" />
           <span className="mr-4">
-            {doc.updatedAt
-              ? formatDate(doc.updatedAt)
-              : formatDate(doc.createdAt)}
+            {doc.updatedAt ? formatDate(doc.updatedAt) : formatDate(doc.createdAt)}
           </span>
           <FileText size={14} className="mr-1.5" />
           <span>
-            {nodeCount} nodos • {edgeCount} conexiones
+            {t("nodesLabel", { count: nodeCount })} • {t("connectionsLabel", { count: edgeCount })}
           </span>
         </div>
 

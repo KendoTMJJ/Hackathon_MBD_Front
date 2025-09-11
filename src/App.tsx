@@ -6,6 +6,7 @@ import SharedDocumentPage from "./pages/SharedDocumentPage";
 import RequireAuth from "./components/auth/RequireAuth";
 import BoardPage from "./pages/BoardPage";
 import ProfilePage from "./pages/ProfilePage";
+import "./i18n";
 
 export default function App() {
   return (

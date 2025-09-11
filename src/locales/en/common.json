@@ -12,31 +12,36 @@
     "personal": "Personal",
     "new": "New"
   },
-  "home": {
-    "welcome": "Welcome",
-    "subtitle": "Create clear diagrams and collaborate in real time."
-  },
-  "sections": {
-    "orgChart": "Org chart",
-    "mindMap": "Mind map",
-    "flowchart": "Flowchart",
-    "conceptMap": "Concept map"
-  },
-  "actions": {
-    "connections": "Connections",
-    "save": "Save",
-    "share": "Share",
-    "info": "Info"
-  },
   "lang": { "switch": "Switch language", "es": "ES", "en": "EN" },
 
+  "home": {
+    "welcome": "Welcome",
+    "subtitle": "Create clear diagrams and collaborate in real time.",
+    "servicesTitle": "Security services",
+    "defaultProjectName": "My diagrams",
+    "loadError": "Error loading data",
+    "newTemplateBtn": "New template",
+    "createSampleTemplate": "Create sample template",
+    "newDocumentBtn": "New document",
+    "createFirstDoc": "Create first document",
+    "nameDiagramTitle": "Name diagram",
+    "nameDiagramPlaceholder": "e.g., Q3 Sales Flow",
+    "continue": "Continue",
+    "cancel": "Cancel"
+  },
+
   "documents": {
+    "title": "My Documents",
+    "type": "Diagram",
     "empty": "You don't have any documents yet.",
-    "type": "Document",
     "open": "Open",
     "delete": "Delete",
     "deleting": "Deleting...",
     "deleteConfirm": "Permanently delete \"{{name}}\"? This action cannot be undone.",
+    "nodesLabel": "{{count}} node",
+    "nodesLabel_plural": "{{count}} nodes",
+    "connectionsLabel": "{{count}} connection",
+    "connectionsLabel_plural": "{{count}} connections",
     "errors": {
       "forbidden": "You don’t have permission to delete this document.",
       "notFound": "The document no longer exists.",
@@ -45,9 +50,38 @@
   },
 
   "templates": {
+    "title": "Templates",
+    "type": "Template",
     "empty": "You don't have any templates yet.",
     "hint": "Use \"Load sample template\" or create one from the editor.",
-    "type": "Template",
-    "use": "Use template"
+    "use": "Use template",
+    "names": {
+      "basic_architecture": "Basic Architecture"
+    },
+    "deleteConfirm": "Permanently delete \"{{name}}\"? This action cannot be undone.",
+    "errors": {
+      "forbidden": "You don’t have permission to delete this template.",
+      "notFound": "The template no longer exists.",
+      "genericDelete": "Could not delete the template."
+    }
+  },
+
+  "services": {
+    "diagnostico": {
+      "title": "Security Assessment",
+      "desc": "We explore your system to identify potential vulnerabilities and recommend effective tools to mitigate security gaps."
+    },
+    "prueba": {
+      "title": "Penetration Test",
+      "desc": "We test how hard it is to access servers via controlled internal and external attacks, evaluating changes, denials or data extraction."
+    },
+    "ponderacion": {
+      "title": "Security Scoring",
+      "desc": "We quantify whether network controls (Firewall, WAF, ADC, Antivirus, etc.) operate correctly and cohesively against threats."
+    },
+    "forense": {
+      "title": "Forensic Analysis",
+      "desc": "We investigate and collect digital evidence after an incident to determine what happened, how and who was involved."
+    }
   }
 }

@@ -17,13 +17,17 @@ import {
 import { FolderOpen, PencilLine } from "lucide-react";
 import { useCan } from "../components/auth/acl";
 
-function defaultTitle(kind: "diagram" | "template") {
+function defaultTitle(
+  kind: "diagram" | "template",
+  t: (k: string, opts?: any) => string
+) {
   const d = new Date();
-  const stamp = d.toLocaleString("es-CO", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
-  return kind === "template" ? `Plantilla ${stamp}` : `Diagrama ${stamp}`;
+  const lang =
+    document.documentElement.getAttribute("lang") || navigator.language || "es";
+  const stamp = d.toLocaleString(lang, { dateStyle: "medium", timeStyle: "short" });
+  return kind === "template"
+    ? `${t("templates.type", { defaultValue: "Plantilla" })} ${stamp}`
+    : `${t("documents.type", { defaultValue: "Diagrama" })} ${stamp}`;
 }
 
 export default function HomePage() {
@@ -35,7 +39,7 @@ export default function HomePage() {
   }, [pathname]);
 
   const { isAuthenticated, loginWithRedirect, isLoading } = useAuth0();
-  const { t } = useTranslation();
+  const { t } = useTranslation("common");
   const api = useApi();
   const navigate = useNavigate();
   const canCreate = useCan("template:create");
@@ -66,7 +70,7 @@ export default function HomePage() {
     const { data: projs } = await api.get<Project[]>("/projects");
     if (!Array.isArray(projs) || projs.length === 0) {
       const created = await api.post<Project>("/projects", {
-        name: t("home.defaultProjectName", { defaultValue: "My Diagrams" }),
+        name: t("home.defaultProjectName", { defaultValue: "My diagrams" }),
       });
       setDefaultProject(created.data);
       return created.data;
@@ -140,7 +144,7 @@ export default function HomePage() {
     const project = await ensureDefaultProject();
     const q = new URLSearchParams({
       projectId: String(project.id),
-      title: defaultTitle("diagram"),
+      title: defaultTitle("diagram", t),
     });
     navigate(`/Board?${q.toString()}`); // draft
   }
@@ -168,7 +172,7 @@ export default function HomePage() {
       return;
     }
     setPendingTpl(tpl);
-    setSuggestedName(`${tpl.title ?? "diagrama"}`);
+    setSuggestedName(`${tpl.title ?? t("documents.type", { defaultValue: "Diagrama" })}`);
     setAskNameOpen(true);
   };
 
@@ -178,7 +182,7 @@ export default function HomePage() {
     const q = new URLSearchParams({
       projectId: String(project.id),
       templateId: String(pendingTpl.id),
-      title: (name && name.trim()) || defaultTitle("diagram"),
+      title: (name && name.trim()) || defaultTitle("diagram", t),
     });
     setAskNameOpen(false);
     setPendingTpl(null);
@@ -209,6 +213,7 @@ export default function HomePage() {
             {/* ---------- HOME ---------- */}
             {view === "home" && (
               <>
+                {/* HERO con 2 botones traducidos */}
                 <section className="mb-8 flex flex-col md:flex-row items-center justify-between rounded-2xl border border-[#3498DB]/20 bg-white p-8 shadow-lg">
                   <div className="mb-4 md:mb-0">
                     <h1 className="text-4xl font-bold text-[#2C3E50]">
@@ -222,27 +227,28 @@ export default function HomePage() {
                     <button
                       className="px-6 py-3 rounded-xl border border-[#3498DB] bg-white text-white hover:bg-[#3498DB] hover:text-white transition-all shadow-sm font-medium flex items-center gap-2"
                       onClick={handleSeedTemplate}
+                      title={t("header.loadSample")}
+                      aria-label={t("header.loadSample")}
                     >
                       <FolderOpen className="text-white" />
-                      {t("home.loadSample", {
-                        defaultValue: "Cargar plantilla de prueba",
-                      })}
+                      {t("header.loadSample")}
                     </button>
                     <button
                       className="px-6 py-3 rounded-xl bg-[#2ECC71] text-white hover:bg-[#27AE60] transition-all shadow-md font-medium flex items-center gap-2"
                       onClick={handleCreateBlank}
+                      title={t("header.blankBoard")}
+                      aria-label={t("header.blankBoard")}
                     >
                       <PencilLine className="text-white" />
-                      {t("home.blankBoard", {
-                        defaultValue: "Crear diagrama en blanco",
-                      })}
+                      {t("header.blankBoard")}
                     </button>
                   </div>
                 </section>
 
+                {/* Servicios de seguridad (4 tarjetas traducidas) */}
                 <section className="mb-8">
                   <h2 className="text-2xl font-bold mb-5 text-[#2C3E50]">
-                    Servicios de seguridad
+                    {t("home.servicesTitle")}
                   </h2>
                   <div className="flex flex-wrap gap-4">
                     {(
@@ -256,29 +262,25 @@ export default function HomePage() {
                       const sectionConfig = {
                         diagnostico: {
                           image: "images/DiagnosticoSeguridad.png",
-                          text: "Diagnóstico de Seguridad",
-                          description:
-                            "Con este diagnóstico, se hace una exploración en el sistema y se identifican las diferentes vulnerabilidades este puede llegar a tener, una vez el estudio concluye brindamos las herramientas más efectivas del mercado para ponerle fin a las deficiencias de seguridad que tenga tu compañía.",
+                          text: t("services.diagnostico.title"),
+                          description: t("services.diagnostico.desc"),
                         },
                         "prueba-penetracion": {
                           image: "images/PruebaPenetracion.png",
-                          text: "Prueba de Penetración",
-                          description:
-                            "Esta prueba pretende verificar qué tan difícil es acceder a los servidores de la compañía, a través de un ataque directo a la infraestructura del servidor o la red desde un punto externo o interno que intentará realizar cambios, denegaciones o extracciones de información.",
+                          text: t("services.prueba.title"),
+                          description: t("services.prueba.desc"),
                         },
                         ponderacion: {
                           image: "images/PonderacionSeguridad.png",
-                          text: "Ponderación de Seguridad",
-                          description:
-                            "La ponderación permite saber si las medidas de control implementadas en la RED (Firewall, WAF, ADC, Antivirus, etc.) están actuando de forma coordinada y correcta frente a posibles amenazas externas, de esta forma podemos saber cuantitativamente el nivel de seguridad de la infraestructura.",
+                          text: t("services.ponderacion.title"),
+                          description: t("services.ponderacion.desc"),
                         },
                         "analisis-forense": {
                           image: "images/AnalisisForense.png",
-                          text: "Análisis Forense",
-                          description:
-                            "El análisis forense es el proceso de investigación y recopilación de evidencia digital tras un evento de seguridad, como un ciberataque, acceso no autorizado o fraude. Su objetivo es identificar qué ocurrió, como sucedió y quién estuvo involucrado, utilizando tecnologías y técnicas avanzadas.",
+                          text: t("services.forense.title"),
+                          description: t("services.forense.desc"),
                         },
-                      };
+                      } as const;
 
                       return (
                         <div
@@ -315,7 +317,7 @@ export default function HomePage() {
               <>
                 <div className="flex justify-between items-center mb-8">
                   <h2 className="text-3xl font-bold text-[#2C3E50]">
-                    Plantillas
+                    {t("templates.title")}
                   </h2>
 
                   {canCreate && (
@@ -324,7 +326,7 @@ export default function HomePage() {
                       onClick={handleSeedTemplate}
                     >
                       <span>+</span>
-                      Nueva plantilla
+                      {t("home.newTemplateBtn", { defaultValue: "Nueva plantilla" })}
                     </button>
                   )}
                 </div>
@@ -345,16 +347,15 @@ export default function HomePage() {
                   <div className="bg-[#3498DB]/10 border border-[#3498DB]/20 rounded-2xl p-8 text-center">
                     <div className="text-5xl mb-4">📋</div>
                     <p className="text-[#2C3E50] mb-5 text-lg">
-                      {t("home.noTemplates", {
-                        defaultValue:
-                          'No tienes plantillas aún. Usa "Cargar plantilla de prueba" o crea una desde el editor.',
-                      })}
+                      {t("templates.hint")}
                     </p>
                     <button
                       className="px-5 py-2.5 rounded-xl bg-[#3498DB] text-white hover:bg-[#2980B9] transition-all shadow-md font-medium"
                       onClick={handleSeedTemplate}
                     >
-                      Crear plantilla de ejemplo
+                      {t("home.createSampleTemplate", {
+                        defaultValue: "Crear plantilla de ejemplo",
+                      })}
                     </button>
                   </div>
                 )}
@@ -366,7 +367,7 @@ export default function HomePage() {
                         key={tpl.id}
                         tpl={tpl as any}
                         onUse={() => handleUseTemplate(tpl)}
-                        onDeleted={handleTemplateDeleted} // 👈 importante
+                        onDeleted={handleTemplateDeleted}
                       />
                     ))}
                   </section>
@@ -379,14 +380,14 @@ export default function HomePage() {
               <>
                 <div className="flex justify-between items-center mb-8">
                   <h2 className="text-3xl font-bold text-[#2C3E50]">
-                    Mis Documentos
+                    {t("documents.title")}
                   </h2>
                   <button
                     className="px-5 py-2.5 rounded-xl bg-[#2ECC71] text-white hover:bg-[#27AE60] transition-all shadow-md font-medium flex items-center gap-2"
                     onClick={handleCreateBlank}
                   >
                     <span>+</span>
-                    Nuevo documento
+                    {t("home.newDocumentBtn", { defaultValue: "Nuevo documento" })}
                   </button>
                 </div>
 
@@ -408,13 +409,13 @@ export default function HomePage() {
                       <FolderOpen className="w-25 h-25" />
                     </div>
                     <p className="text-[#2C3E50] mb-5 text-lg">
-                      Aún no tienes documentos.
+                      {t("documents.empty")}
                     </p>
                     <button
                       className="px-5 py-2.5 rounded-xl bg-[#3498DB] text-white hover:bg-[#2980B9] transition-all shadow-md font-medium"
                       onClick={handleCreateBlank}
                     >
-                      Crear primer documento
+                      {t("home.createFirstDoc", { defaultValue: "Crear primer documento" })}
                     </button>
                   </div>
                 )}
@@ -425,9 +426,7 @@ export default function HomePage() {
                       <DocumentCard
                         key={doc.id}
                         doc={doc as any}
-                        onOpen={(d: DocumentEntity) =>
-                          navigate(`/Board/${d.id}`)
-                        }
+                        onOpen={(d: DocumentEntity) => navigate(`/Board/${d.id}`)}
                         onDeleted={handleCardDeleted}
                       />
                     ))}
@@ -442,11 +441,13 @@ export default function HomePage() {
       {/* Modal para nombrar el diagrama al usar una plantilla */}
       <NameModal
         open={askNameOpen}
-        title="Nombrar diagrama"
-        placeholder="p. ej., Flujo de ventas Q3"
+        title={t("home.nameDiagramTitle", { defaultValue: "Nombrar diagrama" })}
+        placeholder={t("home.nameDiagramPlaceholder", {
+          defaultValue: "p. ej., Flujo de ventas Q3",
+        })}
         initialValue={suggestedName}
-        confirmLabel="Continuar"
-        cancelLabel="Cancelar"
+        confirmLabel={t("home.continue", { defaultValue: "Continuar" })}
+        cancelLabel={t("home.cancel", { defaultValue: "Cancelar" })}
         onCancel={() => {
           setAskNameOpen(false);
           setPendingTpl(null);

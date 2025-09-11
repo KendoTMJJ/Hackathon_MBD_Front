@@ -3,7 +3,6 @@ import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, NavLink } from "react-router-dom";
 import { useAuth0 } from "@auth0/auth0-react";
 import { useTranslation } from "react-i18next";
-import LanguageToggle from "../public/LanguageToggle";
 import { BookText, House, StickyNote, User } from "lucide-react";
 import { useProject } from "../../hooks/useProject";
 
@@ -51,7 +50,7 @@ const Sidebar: React.FC = () => {
     if (!isAuthenticated) {
       const uiLocale = i18n.language?.startsWith("en") ? "en" : "es";
       await loginWithRedirect({
-        appState: { returnTo: "/home" }, // 👈 volver a la app, no a la landing
+        appState: { returnTo: "/home" },
         authorizationParams: { ui_locales: uiLocale },
       });
       return;
@@ -63,7 +62,7 @@ const Sidebar: React.FC = () => {
       projectId: String(project.id),
       title: defaultTitle(),
     });
-    nav(`/Board?${q.toString()}`); // draft con projectId
+    nav(`/Board?${q.toString()}`);
   };
 
   const uiLocale = i18n.language?.startsWith("en") ? "en" : "es";
@@ -97,7 +96,7 @@ const Sidebar: React.FC = () => {
               <button
                 onClick={() =>
                   loginWithRedirect({
-                    appState: { returnTo: "/home" }, // 👈 volver a /home
+                    appState: { returnTo: "/home" },
                     authorizationParams: { ui_locales: uiLocale },
                   })
                 }
@@ -160,7 +159,6 @@ const Sidebar: React.FC = () => {
 
         {/* Nav links */}
         <nav className="mt-4 flex flex-col gap-2" aria-label="Primary">
-          {/* 👇 Inicio ahora va a /home, no a / */}
           <NavLink
             to="/home"
             end
@@ -194,10 +192,9 @@ const Sidebar: React.FC = () => {
         </nav>
       </div>
 
-      {/* Bottom: selector de idioma */}
-      <div className="mt-4 border-t border-[#34495E] pt-4">
-        <LanguageToggle />
-      </div>
+      {/* Bottom: (eliminado el selector de idioma) */}
+      {/* Antes aquí estaba <LanguageToggle />; se removió para ocultar el botón EN/ES del borde inferior izquierdo. */}
+      <div className="mt-4 border-t border-transparent pt-4" />
     </div>
   );
 };
