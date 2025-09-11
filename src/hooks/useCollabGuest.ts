@@ -1,8 +1,8 @@
-/* // src/hooks/useCollabGuest.ts
+// src/hooks/useCollabGuest.ts
 import { useEffect, useRef, useState, useCallback } from "react";
 import type { Socket } from "socket.io-client";
 import { useDocumentStore } from "./useDocument";
-import { createAuthedSocket } from "../lib/socket";
+import { createAuthedSocket } from "@/lib/socket";
 
 export type Presence = {
   userSub: string;
@@ -262,4 +262,3 @@ export function useCollabGuest(
     onRemoteSheetChange,
   };
 }
- */

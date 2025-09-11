@@ -1,5 +1,3 @@
-/*
-
 // src/hooks/useCollabAdapter.ts
 import { useCollab } from "./useCollab";
 import { useCollabGuest } from "./useCollabGuest";
@@ -82,4 +80,3 @@ if (documentId && normal) {
     connected: false,
   };
 }
-*/
